@@ -83,6 +83,7 @@ export default function ResultsPanel({ token, projectId, projectName, onClose, i
     setLoading(true);
     setError("");
     setPolling(false);
+    setParams([]);  // clear stale rows from previous project immediately
 
     let cancelled = false;
     let timer = null;
