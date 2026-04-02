@@ -15,7 +15,7 @@ const jetbrainsMono = JetBrains_Mono({
 
 export const metadata = {
   title: "TenderIQ | AI Tender Analysis",
-  description: "Smart tender analysis powered by Schüco AI",
+  description: "Smart tender analysis powered by Schüco and Sooru.AI",
 };
 
 export default function RootLayout({ children }) {
