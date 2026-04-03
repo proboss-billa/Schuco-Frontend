@@ -221,6 +221,7 @@ function mergeWithRequired(extracted) {
           : [];
       return {
         label: req.label,
+        key: req.key,
         unit: req.unit,
         group: req.group,
         groupLabel: req.groupLabel,
@@ -229,11 +230,14 @@ function mergeWithRequired(extracted) {
         notes: found.notes || null,
         sources,
         section: sources[0]?.section ?? found.source?.section ?? null,
+        sourceText: found.source_text || null,
+        multiSource: found.multi_source || false,
         available: true,
       };
     }
     return {
       label: req.label,
+      key: req.key,
       unit: req.unit,
       group: req.group,
       groupLabel: req.groupLabel,
@@ -241,6 +245,8 @@ function mergeWithRequired(extracted) {
       confidence: null,
       notes: null,
       sources: [],
+      sourceText: null,
+      multiSource: false,
       available: false,
     };
   });
@@ -348,6 +354,7 @@ export default function ResultsPanel({ token, projectId, projectName, onClose, i
   const [pipelineStep, setPipelineStep] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const [reExtracting, setReExtracting] = useState(false);
+  const [reExtractingParam, setReExtractingParam] = useState(null); // key of single param being re-extracted
   const [timings, setTimings] = useState(null);
   const [showTimings, setShowTimings] = useState(false);
   const [timingView, setTimingView] = useState("summary"); // "summary" | "all"
@@ -1082,12 +1089,15 @@ export default function ResultsPanel({ token, projectId, projectName, onClose, i
                         )}
                       </div>
                       {/* Confidence */}
-                      <div style={{ display: "flex", alignItems: "flex-start" }}>
+                      <div style={{ display: "flex", alignItems: "flex-start", gap: 3 }}>
                         {r.available && r.confidence != null ? (
                           <span style={{ fontSize: 10, fontWeight: 700, color: confidenceColor(r.confidence), background: `${confidenceColor(r.confidence)}14`, padding: "2px 6px", borderRadius: 4 }}>
                             {r.confidence}%
                           </span>
                         ) : <span style={{ fontSize: 10, color: C.text3 }}>—</span>}
+                        {r.multiSource && (
+                          <span title="Sourced from multiple documents" style={{ fontSize: 9, color: "#f59e0b", fontWeight: 700 }}>⚠</span>
+                        )}
                       </div>
                       {/* Source */}
                       <div style={{ display: "flex", alignItems: "flex-start", gap: 3, flexWrap: "wrap" }}>
@@ -1181,14 +1191,48 @@ export default function ResultsPanel({ token, projectId, projectName, onClose, i
                   ))}
                 </div>
               )}
+              {/* Multi-source notice */}
+              {popup.multiSource && (
+                <div style={{ fontSize: 11, color: "#f59e0b", background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.25)", borderRadius: 7, padding: "7px 11px", marginBottom: 10, display: "flex", alignItems: "center", gap: 6 }}>
+                  <span>⚠</span> Value sourced from multiple documents — verify for consistency
+                </div>
+              )}
+              {/* Explanation / notes */}
               {popup.notes && (
-                <div style={{ fontSize: 12, color: C.text2, lineHeight: 1.65, padding: "10px 12px", background: C.bg, borderRadius: 7, border: `1px solid ${C.border}`, whiteSpace: "pre-wrap", marginBottom: 14 }}>
+                <div style={{ fontSize: 11, color: C.text2, lineHeight: 1.65, padding: "9px 11px", background: C.bg, borderRadius: 7, border: `1px solid ${C.border}`, whiteSpace: "pre-wrap", marginBottom: 10 }}>
                   {popup.notes}
                 </div>
               )}
+              {/* Source evidence text */}
+              {popup.sourceText && (
+                <details style={{ marginBottom: 10 }}>
+                  <summary style={{ fontSize: 10, color: C.text3, cursor: "pointer", userSelect: "none", fontWeight: 600, letterSpacing: "0.04em", textTransform: "uppercase" }}>
+                    Source Evidence ▸
+                  </summary>
+                  <div style={{ fontSize: 11, color: C.text2, lineHeight: 1.7, padding: "8px 10px", background: C.bg, borderRadius: 7, border: `1px solid ${C.border}`, whiteSpace: "pre-wrap", marginTop: 5, maxHeight: 140, overflowY: "auto", fontFamily: "monospace" }}>
+                    {popup.sourceText}
+                  </div>
+                </details>
+              )}
             </div>
-            <div style={{ padding: "8px 18px 14px", textAlign: "center" }}>
+            <div style={{ padding: "8px 18px 14px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <span style={{ fontSize: 10, color: C.text3 }}>Click outside to close</span>
+              {popup.key && (
+                <button
+                  disabled={reExtractingParam === popup.key}
+                  onClick={async () => {
+                    if (!popup.key || reExtractingParam) return;
+                    setReExtractingParam(popup.key);
+                    try {
+                      await api.reExtractSingle(token, projectId, popup.key);
+                      // Poll until value changes — just trigger a refresh after 15s
+                      setTimeout(() => { setRefreshKey(k => k + 1); setReExtractingParam(null); }, 15000);
+                    } catch { setReExtractingParam(null); }
+                  }}
+                  style={{ fontSize: 10, padding: "4px 10px", background: "transparent", border: `1px solid ${C.greenBorder}`, borderRadius: 5, color: reExtractingParam === popup.key ? C.text3 : C.green, cursor: reExtractingParam === popup.key ? "default" : "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 4 }}>
+                  {reExtractingParam === popup.key ? "↻ Re-extracting…" : "↻ Re-extract this"}
+                </button>
+              )}
             </div>
           </div>
         </div>
