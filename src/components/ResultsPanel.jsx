@@ -388,7 +388,7 @@ export default function ResultsPanel({ token, projectId, projectName, onClose, i
     let cancelled = false;
     let timer = null;
     let attempts = 0;
-    const MAX_ATTEMPTS = 80;
+    const MAX_ATTEMPTS = 200;    // 200 × 3s = 10 min — covers 20-file uploads
     const POLL_INTERVAL = 3000;
 
     const fetchParams = () => {
@@ -416,7 +416,7 @@ export default function ResultsPanel({ token, projectId, projectName, onClose, i
             attempts++;
             timer = setTimeout(fetchParams, POLL_INTERVAL);
           } else {
-            setError("Could not load parameters. Please refresh.");
+            setError("Processing is taking longer than expected. Refresh the page to check progress.");
             setLoading(false);
             setPolling(false);
             setReExtracting(false);
@@ -1058,9 +1058,9 @@ export default function ResultsPanel({ token, projectId, projectName, onClose, i
                   const isEven = ri % 2 === 0;
                   return (
                     <div key={ri}
-                      onClick={() => r.available && setPopup(r)}
-                      style={{ display: "grid", gridTemplateColumns: "minmax(0,2.2fr) minmax(0,1.8fr) 56px 90px", padding: "6px 14px", background: isEven ? "transparent" : `${C.bg2}80`, borderBottom: `1px solid ${C.border}40`, cursor: r.available ? "pointer" : "default", opacity: r.available ? 1 : 0.5, transition: "background 0.1s" }}
-                      onMouseEnter={e => { if (r.available) e.currentTarget.style.background = `${C.greenSubtle}`; }}
+                      onClick={() => setPopup(r)}
+                      style={{ display: "grid", gridTemplateColumns: "minmax(0,2.2fr) minmax(0,1.8fr) 56px 90px", padding: "6px 14px", background: isEven ? "transparent" : `${C.bg2}80`, borderBottom: `1px solid ${C.border}40`, cursor: "pointer", opacity: r.available ? 1 : 0.5, transition: "background 0.1s" }}
+                      onMouseEnter={e => { e.currentTarget.style.background = `${C.greenSubtle}`; }}
                       onMouseLeave={e => { e.currentTarget.style.background = isEven ? "transparent" : `${C.bg2}80`; }}>
                       {/* Parameter name */}
                       <div style={{ minWidth: 0, paddingRight: 8 }}>
@@ -1076,8 +1076,8 @@ export default function ResultsPanel({ token, projectId, projectName, onClose, i
                             {r.value}
                           </div>
                         ) : (
-                          <div style={{ fontSize: 10, color: C.text3, fontStyle: "italic" }}>
-                            {polling ? "scanning…" : "—"}
+                          <div style={{ fontSize: 10, color: C.text3, fontStyle: "italic" }} title={r.notes || "Not specified in documents"}>
+                            {polling ? "scanning…" : "Not specified"}
                           </div>
                         )}
                       </div>
@@ -1149,9 +1149,15 @@ export default function ResultsPanel({ token, projectId, projectName, onClose, i
             </div>
             {/* Value */}
             <div style={{ padding: "16px 18px 0" }}>
-              <div style={{ fontSize: 18, color: C.text1, fontWeight: 700, fontFamily: F.mono, wordBreak: "break-word", lineHeight: 1.5, marginBottom: 14 }}>
-                {popup.value}
-              </div>
+              {popup.available ? (
+                <div style={{ fontSize: 18, color: C.text1, fontWeight: 700, fontFamily: F.mono, wordBreak: "break-word", lineHeight: 1.5, marginBottom: 14 }}>
+                  {popup.value}
+                </div>
+              ) : (
+                <div style={{ fontSize: 12, color: C.text3, fontStyle: "italic", marginBottom: 14, padding: "8px 12px", background: C.bg, borderRadius: 7, border: `1px solid ${C.border}` }}>
+                  Not specified in the uploaded documents
+                </div>
+              )}
               {/* Sources */}
               {popup.sources?.length > 0 && (
                 <div style={{ display: "flex", flexDirection: "column", gap: 5, marginBottom: 14 }}>
