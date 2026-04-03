@@ -820,7 +820,7 @@ export default function ResultsPanel({ token, projectId, projectName, onClose, i
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12 }}>
               <div style={{ width: 8, height: 8, borderRadius: "50%", background: C.text3 }} />
-              <span style={{ color: C.text2 }}><strong style={{ color: C.text1 }}>{missing.length}</strong> Not Available</span>
+              <span style={{ color: C.text2 }}><strong style={{ color: C.text1 }}>{params.length - found.length}</strong> Not Available</span>
             </div>
           </div>
           {/* Re-extract always visible — lets users refresh with new parameter catalog */}
