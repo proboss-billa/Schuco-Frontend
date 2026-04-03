@@ -7,60 +7,168 @@ import { CloseIcon, DownloadIcon } from "@/components/Icons";
 // ── Parameter groups (order + category labels) ───────────────────────────────
 const PARAM_GROUPS = [
   {
-    id: "performance",
-    label: "Performance",
+    id: "technical_spec",
+    label: "Technical Specification",
     params: [
-      { key: "Wind Load",                         label: "Wind Load",                         unit: "kN/m² / Pa" },
-      { key: "Water Tightness",                   label: "Water Tightness",                   unit: "Pa / Class" },
-      { key: "Air Permeability",                  label: "Air Permeability",                  unit: "m³/h·m² / Class" },
-      { key: "Acoustic Rating",                   label: "Acoustic Rating",                   unit: "dB / Rw" },
-      { key: "U-Value",                           label: "U-Value",                           unit: "W/m²K" },
-      { key: "Deflection Limit",                  label: "Deflection Limit",                  unit: "L/xxx / mm" },
+      { key: "Wind Load",                                          label: "Wind Load",                                          unit: "kN/m² / Pa" },
+      { key: "Wind Load Zoning",                                   label: "Wind Load Zoning",                                   unit: "zone / kN/m²" },
+      { key: "Glass Thickness (Vision & Spandrel)",                label: "Glass Thickness (Vision & Spandrel)",                unit: "mm" },
+      { key: "Glass Thickness (Openable)",                         label: "Glass Thickness (Openable)",                         unit: "mm" },
+      { key: "Panel Modulation",                                   label: "Panel Modulation",                                   unit: "mm × mm" },
+      { key: "BMU Load",                                           label: "BMU Load",                                           unit: "kN / kg" },
+      { key: "Lighting Provision",                                 label: "Lighting Provision",                                 unit: "yes/no" },
+      { key: "Panel Typologies",                                   label: "Panel Typologies",                                   unit: "nos" },
+      { key: "Structural Member Wall Thickness",                   label: "Structural Member Wall Thickness",                   unit: "mm" },
+      { key: "Material of Gasket",                                 label: "Material of Gasket",                                 unit: "material" },
+      { key: "No. of Barriers",                                    label: "No. of Barriers",                                    unit: "nos" },
+      { key: "Stack Height",                                       label: "Stack Height",                                       unit: "mm" },
+      { key: "Vertical Stack Movement",                            label: "Vertical Stack Movement",                            unit: "mm" },
+      { key: "Bracket Type",                                       label: "Bracket Type",                                       unit: "type" },
+      { key: "Water Tightness",                                    label: "Water Tightness",                                    unit: "Pa / Class" },
+      { key: "Air Permeability",                                   label: "Air Permeability",                                   unit: "m³/h·m² / Class" },
+      { key: "Seismic Performance",                                label: "Seismic Performance",                                unit: "mm / zone" },
+      { key: "Acoustic Rating",                                    label: "Acoustic Rating",                                    unit: "dB / Rw" },
+      { key: "U-Value",                                            label: "U-Value",                                            unit: "W/m²K" },
+      { key: "Signage Load",                                       label: "Signage Load",                                       unit: "kN / kg" },
+      { key: "Horizontal Movement",                                label: "Horizontal Movement",                                unit: "mm" },
+      { key: "Face Width of Mullion",                              label: "Face Width of Mullion",                              unit: "mm" },
+      { key: "No. of Locking Points",                              label: "No. of Locking Points",                              unit: "nos" },
+      { key: "Sealant Bite",                                       label: "Sealant Bite",                                       unit: "mm" },
+      { key: "100% Dead Load on Sill / Intermediate Transom",      label: "100% Dead Load on Sill / Intermediate Transom",      unit: "yes/no" },
+      { key: "100% Dead Load on Glass Support (Openable)",         label: "100% Dead Load on Glass Support (Openable)",         unit: "yes/no" },
+      { key: "Distance – Slab to Mullion",                         label: "Distance – Slab to Mullion",                         unit: "mm" },
+      { key: "Load of Canopy",                                     label: "Load of Canopy",                                     unit: "kN / yes/no" },
+      { key: "Load of Catwalk",                                    label: "Load of Catwalk",                                    unit: "kN / yes/no" },
+      { key: "Inserts Required",                                   label: "Inserts Required",                                   unit: "yes/no" },
+      { key: "Movement of Slab Mounted Bracket",                   label: "Movement of Slab Mounted Bracket",                   unit: "mm" },
+      { key: "Location of Restrain Pin",                           label: "Location of Restrain Pin",                           unit: "mullion / transom" },
+      { key: "Gutter Sleeve Length & Thickness",                   label: "Gutter Sleeve Length & Thickness",                   unit: "mm" },
+      { key: "Openable Edge Guard – First Barrier Gasket",         label: "Openable Edge Guard – First Barrier Gasket",         unit: "yes/no" },
+      { key: "Drip Bar Edge Guard for Openable",                   label: "Drip Bar Edge Guard for Openable",                   unit: "material" },
+      { key: "Structural Adequacy in Open Condition",              label: "Structural Adequacy in Open Condition",              unit: "yes/no" },
+      { key: "Deflection Criteria",                                label: "Deflection Criteria",                                unit: "L/xxx / mm" },
+      { key: "Fire Rating",                                        label: "Fire Rating",                                        unit: "min / Class" },
+      { key: "Testing Standards (Onsite / Offsite)",               label: "Testing Standards (Onsite / Offsite)",               unit: "standard" },
+      { key: "Surface Finish",                                     label: "Surface Finish",                                     unit: "AAMA / µm" },
+      { key: "Corrosion Class for Fittings",                       label: "Corrosion Class for Fittings",                       unit: "class" },
+      { key: "Durability Test",                                    label: "Durability Test",                                    unit: "cycles / standard" },
+      { key: "Live Load Criteria for Railing",                     label: "Live Load Criteria for Railing",                     unit: "kN/m" },
+      { key: "Operating Force Requirement",                        label: "Operating Force Requirement",                        unit: "N" },
+      { key: "Easy Clean System in Openable",                      label: "Easy Clean System in Openable",                      unit: "yes/no" },
+      { key: "Limiting Stay in Openable",                          label: "Limiting Stay in Openable",                          unit: "yes/no" },
+      { key: "Door Closure Required",                              label: "Door Closure Required",                              unit: "yes/no" },
+      { key: "SS Screws & Hardware – Visible Area",                label: "SS Screws & Hardware – Visible Area",                unit: "SS 304 / 316" },
+      { key: "SS Screws & Hardware – Non-Visible Area",            label: "SS Screws & Hardware – Non-Visible Area",            unit: "SS 304 / 316" },
+      { key: "Aluminium Alloy (6063 / 6060)",                      label: "Aluminium Alloy (6063 / 6060)",                      unit: "alloy" },
+      { key: "Shims – Make / Type (HDG / PVC)",                    label: "Shims – Make / Type (HDG / PVC)",                    unit: "HDG / PVC" },
+      { key: "PMU Requirement",                                    label: "PMU Requirement",                                    unit: "yes/no" },
+      { key: "VMU Requirement",                                    label: "VMU Requirement",                                    unit: "yes/no" },
     ],
   },
   {
-    id: "glazing",
-    label: "Glazing",
+    id: "tender_drawing",
+    label: "Tender Drawing Requirements",
     params: [
-      { key: "Glass Thickness (Fixed)",           label: "Glass Thickness (Fixed)",           unit: "mm" },
-      { key: "Glass Thickness (Openable)",        label: "Glass Thickness (Openable)",        unit: "mm" },
-      { key: "Solar Factor / g-Value / SHGC",     label: "Solar Factor / g-Value / SHGC",     unit: "dimensionless / %" },
-      { key: "Visible Light Transmittance (VLT)", label: "Visible Light Transmittance (VLT)", unit: "%" },
-      { key: "Impact Resistance",                 label: "Impact Resistance",                 unit: "J / Class" },
+      { key: "Drawing – Elevations",                               label: "Drawing – Elevations",                               unit: "yes/no" },
+      { key: "Drawing – Plan",                                     label: "Drawing – Plan",                                     unit: "yes/no" },
+      { key: "Drawing – Section",                                  label: "Drawing – Section",                                  unit: "yes/no" },
+      { key: "Drawing – PE at Typical / Corner / Terrace / Starter", label: "Drawing – PE at Typical / Corner / Terrace / Starter", unit: "yes/no" },
+      { key: "Drawing – PE at Refuge Area",                        label: "Drawing – PE at Refuge Area",                        unit: "yes/no" },
+      { key: "Drawing – Railing Interface",                        label: "Drawing – Railing Interface",                        unit: "yes/no" },
+      { key: "Drawing – PE for Non-Typical Area",                  label: "Drawing – PE for Non-Typical Area",                  unit: "yes/no" },
+      { key: "Fin Details (Width, Depth, Shape)",                  label: "Fin Details (Width, Depth, Shape)",                  unit: "mm" },
+      { key: "Location of Openable in Elevation & Plan",           label: "Location of Openable in Elevation & Plan",           unit: "yes/no" },
+      { key: "Coping Details",                                     label: "Coping Details",                                     unit: "yes/no" },
+      { key: "Inner / Outer Corner Details (Split / Single)",      label: "Inner / Outer Corner Details (Split / Single)",      unit: "split / single" },
+      { key: "Variable Angle",                                     label: "Variable Angle",                                     unit: "degrees" },
+      { key: "Variable Gasket",                                    label: "Variable Gasket",                                    unit: "yes/no" },
+      { key: "Variable Angle Mullion (Semi-Unitised)",             label: "Variable Angle Mullion (Semi-Unitised)",             unit: "yes/no" },
+      { key: "Top & Bottom Flashing with Insulation",              label: "Top & Bottom Flashing with Insulation",              unit: "yes/no" },
+      { key: "Semi-Unitised Glass Support and Cleats",             label: "Semi-Unitised Glass Support and Cleats",             unit: "yes/no" },
+      { key: "Gasket for Transom and Mullion",                     label: "Gasket for Transom and Mullion",                     unit: "material" },
+      { key: "Intermediate Transom Edge Guard (No Visible Screws)", label: "Intermediate Transom Edge Guard (No Visible Screws)", unit: "yes/no" },
+      { key: "ACP Band Interface Details",                         label: "ACP Band Interface Details",                         unit: "yes/no" },
+      { key: "Horizontal Fin Details",                             label: "Horizontal Fin Details",                             unit: "yes/no" },
+      { key: "Fin Lightning Provision",                            label: "Fin Lightning Provision",                            unit: "yes/no" },
+      { key: "Canopy Details",                                     label: "Canopy Details",                                     unit: "yes/no" },
+      { key: "Catwalk Details",                                    label: "Catwalk Details",                                    unit: "yes/no" },
+      { key: "Louvers Details (Shape & Location)",                 label: "Louvers Details (Shape & Location)",                 unit: "yes/no" },
+      { key: "Mullion Sleeve Length (Semi-Unitised)",              label: "Mullion Sleeve Length (Semi-Unitised)",              unit: "mm" },
+      { key: "Wind Load Brackets & Dead Load",                     label: "Wind Load Brackets & Dead Load",                     unit: "yes/no" },
+      { key: "Flashings",                                          label: "Flashings",                                          unit: "yes/no" },
+      { key: "Waterproofing Membrane",                             label: "Waterproofing Membrane",                             unit: "yes/no" },
+      { key: "Subframes",                                          label: "Subframes",                                          unit: "yes/no" },
+      { key: "Perimeter Tubes (Curtain Wall / Toggle / UCW)",      label: "Perimeter Tubes (Curtain Wall / Toggle / UCW)",      unit: "yes/no" },
+      { key: "Fin Bracket & Bolts",                                label: "Fin Bracket & Bolts",                                unit: "yes/no" },
+      { key: "Mullion Structural Design Principle",                label: "Mullion Structural Design Principle",                unit: "type" },
+      { key: "Slider Types",                                       label: "Slider Types",                                       unit: "type" },
+      { key: "Openable Types",                                     label: "Openable Types",                                     unit: "type" },
+      { key: "Chajja Details (Width, Depth, Shape)",               label: "Chajja Details (Width, Depth, Shape)",               unit: "mm" },
+      { key: "No. of Floors",                                      label: "No. of Floors",                                      unit: "floors" },
+      { key: "Gutter – Integrated / Third Party",                  label: "Gutter – Integrated / Third Party",                  unit: "type" },
     ],
   },
   {
-    id: "structural",
-    label: "Structural & Movement",
+    id: "boq_hardware",
+    label: "BOQ & Hardware",
     params: [
-      { key: "Seismic Performance",               label: "Seismic Performance",               unit: "mm / g" },
-      { key: "Horizontal Movement",               label: "Horizontal Movement",               unit: "mm" },
-      { key: "Vertical Stack Movement",           label: "Vertical Stack Movement",           unit: "mm" },
-      { key: "Stack Height",                      label: "Stack Height",                      unit: "mm / m" },
-      { key: "Slab Edge Deflection",              label: "Slab Edge Deflection",              unit: "mm" },
-      { key: "Thermal Movement",                  label: "Thermal Movement",                  unit: "mm / °C" },
-      { key: "Facade Dead Load / Self Weight",    label: "Facade Dead Load / Self Weight",    unit: "kN/m²" },
+      { key: "Glazing / Façade Area",                              label: "Glazing / Façade Area",                              unit: "m²" },
+      { key: "Handle for Openable",                                label: "Handle for Openable",                                unit: "type" },
+      { key: "Handle Requirements (Lockable / Non-Lockable / Custodian)", label: "Handle Requirements (Lockable / Non-Lockable / Custodian)", unit: "type" },
+      { key: "Outside Pull Handle Required",                       label: "Outside Pull Handle Required",                       unit: "yes/no" },
+      { key: "Hardware Specification",                             label: "Hardware Specification",                             unit: "brand / grade" },
+      { key: "Door Threshold Type",                                label: "Door Threshold Type",                                unit: "type" },
+      { key: "Concealed Door Closure & Hinge",                     label: "Concealed Door Closure & Hinge",                     unit: "yes/no" },
+      { key: "Distance – Glass Edge to Glass Support",             label: "Distance – Glass Edge to Glass Support",             unit: "mm" },
+      { key: "Durability Requirements",                            label: "Durability Requirements",                            unit: "cycles / years" },
+      { key: "Lifting Provision",                                  label: "Lifting Provision",                                  unit: "yes/no" },
+      { key: "Silicon Gasket",                                     label: "Silicon Gasket",                                     unit: "type" },
+      { key: "Coating Specification (AAMA 2603 / 2604 / 2605)",   label: "Coating Specification (AAMA 2603 / 2604 / 2605)",   unit: "AAMA grade" },
+      { key: "Warranty Terms",                                     label: "Warranty Terms",                                     unit: "years" },
+      { key: "Metal Separator",                                    label: "Metal Separator",                                    unit: "yes/no" },
+      { key: "Perimeter Rectangular Tube",                         label: "Perimeter Rectangular Tube",                         unit: "mm × mm" },
+      { key: "Fasteners",                                          label: "Fasteners",                                          unit: "grade / type" },
+      { key: "Screw Hole Caps",                                    label: "Screw Hole Caps",                                    unit: "yes/no" },
+      { key: "Fin End Caps",                                       label: "Fin End Caps",                                       unit: "yes/no" },
+      { key: "Handle for Sliders",                                 label: "Handle for Sliders",                                 unit: "type" },
+      { key: "Lock & Key Required",                                label: "Lock & Key Required",                                unit: "yes/no" },
+      { key: "Standard / Custom Colour",                           label: "Standard / Custom Colour",                           unit: "standard / custom" },
+      { key: "Track Protection",                                   label: "Track Protection",                                   unit: "yes/no" },
+      { key: "Ventilator Type (Exhaust Fan / Louvre)",             label: "Ventilator Type (Exhaust Fan / Louvre)",             unit: "type" },
+      { key: "Door Type (Pivot / Swing)",                          label: "Door Type (Pivot / Swing)",                          unit: "type" },
+      { key: "Georgian Bar Requirements",                          label: "Georgian Bar Requirements",                          unit: "yes/no" },
+      { key: "Integration with Ventilators (Renson)",             label: "Integration with Ventilators (Renson)",             unit: "yes/no" },
+      { key: "Interlock End Caps",                                 label: "Interlock End Caps",                                 unit: "yes/no" },
+      { key: "Door Stopper",                                       label: "Door Stopper",                                       unit: "yes/no" },
+      { key: "Automation",                                         label: "Automation",                                         unit: "yes/no" },
     ],
   },
   {
-    id: "safety",
-    label: "Safety & Fire",
+    id: "commercial",
+    label: "Commercial Terms & Conditions",
     params: [
-      { key: "Fire Rating",                       label: "Fire Rating",                       unit: "min / Class" },
-      { key: "No. of Barriers",                   label: "No. of Barriers",                   unit: "nos" },
-      { key: "Blast / Explosion Resistance",      label: "Blast / Explosion Resistance",      unit: "kPa / Class" },
-    ],
-  },
-  {
-    id: "system",
-    label: "System & Project",
-    params: [
-      { key: "Facade System Type",                label: "Facade System Type",                unit: "type" },
-      { key: "BMU Load",                          label: "BMU Load",                          unit: "kN / kg" },
-      { key: "Signage Load",                      label: "Signage Load",                      unit: "kN / kg" },
-      { key: "Warranty Period",                   label: "Warranty Period",                   unit: "years" },
-      { key: "Testing & Mock-up Requirements",    label: "Testing & Mock-up Requirements",    unit: "standard" },
-      { key: "Sustainability / Green Rating",     label: "Sustainability / Green Rating",     unit: "rating" },
+      { key: "DLP (Defect Liability Period)",                      label: "DLP (Defect Liability Period)",                      unit: "months" },
+      { key: "BG (Bank Guarantee)",                                label: "BG (Bank Guarantee)",                                unit: "%" },
+      { key: "Retention",                                          label: "Retention",                                          unit: "%" },
+      { key: "Quotation Validity",                                 label: "Quotation Validity",                                 unit: "days / months" },
+      { key: "NALCO Rate / Clause",                                label: "NALCO Rate / Clause",                                unit: "INR/kg" },
+      { key: "Rate Validity",                                      label: "Rate Validity",                                      unit: "months" },
+      { key: "Supplies Validity",                                  label: "Supplies Validity",                                  unit: "months" },
+      { key: "Scope of Supply (CIF / Ex Works)",                   label: "Scope of Supply (CIF / Ex Works)",                   unit: "Incoterm" },
+      { key: "Wastages",                                           label: "Wastages",                                           unit: "%" },
+      { key: "Project Completion Timelines",                       label: "Project Completion Timelines",                       unit: "months" },
+      { key: "Project Management Requirements",                    label: "Project Management Requirements",                    unit: "text" },
+      { key: "Shop Drawings",                                      label: "Shop Drawings",                                      unit: "text" },
+      { key: "Tolerances",                                         label: "Tolerances",                                         unit: "±mm" },
+      { key: "PMU Cost",                                           label: "PMU Cost",                                           unit: "INR / lump sum" },
+      { key: "Mode of Measurement (BOQ / Actual Size)",            label: "Mode of Measurement (BOQ / Actual Size)",            unit: "type" },
+      { key: "Payment Terms",                                      label: "Payment Terms",                                      unit: "% / days" },
+      { key: "MTC (Material Test Certificate)",                    label: "MTC (Material Test Certificate)",                    unit: "yes/no" },
+      { key: "Protection Tape",                                    label: "Protection Tape",                                    unit: "yes/no" },
+      { key: "No. of Lots Required",                               label: "No. of Lots Required",                               unit: "nos" },
+      { key: "Stationed Service Engineer",                         label: "Stationed Service Engineer",                         unit: "yes/no" },
+      { key: "Stationed Project Manager",                          label: "Stationed Project Manager",                          unit: "yes/no" },
+      { key: "Sample Board",                                       label: "Sample Board",                                       unit: "yes/no" },
     ],
   },
 ];
@@ -87,6 +195,7 @@ function fileIcon(fileType) {
   if (fileType.includes("pdf"))  return "📕";
   if (fileType.includes("docx") || fileType.includes("doc")) return "📘";
   if (fileType.includes("excel") || fileType.includes("xlsx")) return "📗";
+  if (fileType.includes("dxf") || fileType.includes("dwg")) return "📐";
   return "📄";
 }
 
@@ -239,6 +348,33 @@ export default function ResultsPanel({ token, projectId, projectName, onClose, i
   const [pipelineStep, setPipelineStep] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const [reExtracting, setReExtracting] = useState(false);
+  const [timings, setTimings] = useState(null);
+  const [showTimings, setShowTimings] = useState(false);
+  const [timingView, setTimingView] = useState("summary"); // "summary" | "all"
+  const [filterText, setFilterText] = useState("");
+  const [activeTab, setActiveTab] = useState("all"); // "all" | "found" | "missing"
+  const [collapsedGroups, setCollapsedGroups] = useState(new Set());
+
+  // ── Poll timings endpoint ─────────────────────────────────────────────────
+  useEffect(() => {
+    if (!projectId) return;
+    setTimings(null);
+    let cancelled = false;
+    let timer = null;
+
+    const fetchTimings = () => {
+      api.getTimings(token, projectId).then(data => {
+        if (cancelled || !data) return;
+        setTimings(data);
+        // Keep polling while still processing
+        if (data.processing_status === "processing" || data.processing_status === "uploaded") {
+          timer = setTimeout(fetchTimings, 3000);
+        }
+      });
+    };
+    fetchTimings();
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [token, projectId, refreshKey]);
 
   useEffect(() => {
     if (!projectId) return;
@@ -306,43 +442,184 @@ export default function ResultsPanel({ token, projectId, projectName, onClose, i
   };
 
   const found = params.filter(p => p.available);
-  const missing = params.filter(p => !p.available);
-
-  const tableRows = () => params.map(p => {
-    // Build "Document: Pg.X, Pg.Y | Document2: Pg.Z" source string
-    const srcStr = p.available && p.sources?.length
-      ? p.sources.map(s => {
-          const doc  = s.document ? shortName(s.document) : "?";
-          const pgs  = (s.pages || []).map(pg => `Pg.${pg}`).join(", ");
-          return pgs ? `${doc}: ${pgs}` : doc;
-        }).join(" | ")
-      : "-";
-    return [
-      p.label,
-      p.available ? p.value : "Not Available",
-      p.unit,
-      p.available ? `${p.confidence}%` : "-",
-      srcStr,
-      p.available ? "Found" : "Not Available",
-    ];
-  });
-  const tableHead = ["Parameter", "Value", "Unit", "Confidence", "Source (Doc: Pages)", "Status"];
 
   const exportCSV = () => {
-    const rows = [tableHead, ...tableRows()];
-    const csv = rows.map(r => r.map(v => `"${v}"`).join(",")).join("\n");
+    const esc = v => `"${String(v ?? "").replace(/"/g, '""')}"`;
+    const head = ["Section", "Parameter", "Value", "Unit", "Confidence %", "Source Document", "Source Pages", "Status"];
+    const rows = [head];
+    PARAM_GROUPS.forEach(group => {
+      const groupParams = params.filter(p => p.group === group.id);
+      groupParams.forEach(p => {
+        const srcDoc = p.available && p.sources?.length ? p.sources.map(s => s.document || "").filter(Boolean).join(" / ") : "";
+        const srcPg  = p.available && p.sources?.length ? p.sources.flatMap(s => (s.pages || []).map(pg => `Pg.${pg}`)).join(", ") : "";
+        rows.push([
+          group.label, p.label,
+          p.available ? (p.value || "—") : "—",
+          p.unit || "",
+          p.available ? (p.confidence != null ? `${p.confidence}%` : "—") : "—",
+          srcDoc || "—", srcPg || "—",
+          p.available ? "Available" : "Not Available",
+        ]);
+      });
+    });
+    // Extra params not in groups
+    params.filter(p => p.extra).forEach(p => {
+      const srcDoc = p.sources?.map(s => s.document || "").filter(Boolean).join(" / ") || "";
+      const srcPg  = p.sources?.flatMap(s => (s.pages || []).map(pg => `Pg.${pg}`)).join(", ") || "";
+      rows.push(["Additional", p.label, p.value || "—", p.unit || "", p.confidence != null ? `${p.confidence}%` : "—", srcDoc || "—", srcPg || "—", "Available"]);
+    });
+    const csv = rows.map(r => r.map(esc).join(",")).join("\n");
     const a = document.createElement("a");
     a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
-    a.download = `TenderIQ_${projectId}.csv`; a.click();
+    a.download = `TenderIQ_${projectName ? projectName.replace(/[^a-z0-9]/gi, "_") : projectId}.csv`;
+    a.click();
   };
 
   const exportXLS = async () => {
-    const XLSX = await import("xlsx");
-    const ws = XLSX.utils.aoa_to_sheet([tableHead, ...tableRows()]);
-    ws["!cols"] = [{ wch: 30 }, { wch: 40 }, { wch: 18 }, { wch: 12 }, { wch: 8 }, { wch: 14 }];
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Parameters");
-    XLSX.writeFile(wb, `TenderIQ_${projectId}.xlsx`);
+    const ExcelJS = (await import("exceljs")).default;
+    const wb = new ExcelJS.Workbook();
+    wb.creator = "TenderIQ"; wb.created = new Date();
+    const ws = wb.addWorksheet("TenderIQ Parameters", { views: [{ state: "frozen", ySplit: 3 }] });
+
+    // Column definitions
+    ws.columns = [
+      { key: "no",    width: 5  },
+      { key: "param", width: 38 },
+      { key: "value", width: 40 },
+      { key: "unit",  width: 16 },
+      { key: "conf",  width: 13 },
+      { key: "srcDoc",width: 30 },
+      { key: "srcPg", width: 18 },
+      { key: "status",width: 13 },
+    ];
+
+    const SECTION_COLORS = {
+      technical_spec:  "1E3A5F",
+      tender_drawing:  "1A4A3A",
+      boq_hardware:    "3D1A5F",
+      commercial:      "5F3300",
+    };
+    const SECTION_TEXT   = "FFFFFF";
+    const COL_HDR_BG     = "2D3748";
+    const COL_HDR_FG     = "FFFFFF";
+    const FOUND_STRIPE_A = "FFFFFF";
+    const FOUND_STRIPE_B = "F7F8FA";
+    const MISS_BG        = "F4F4F4";
+    const MISS_FG        = "AAAAAA";
+
+    const style = (cell, opts = {}) => {
+      if (opts.bg)   cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF" + opts.bg } };
+      if (opts.fg)   cell.font = { ...cell.font, color: { argb: "FF" + opts.fg }, bold: opts.bold || false, italic: opts.italic || false, size: opts.size || 10, name: "Arial" };
+      else           cell.font = { ...cell.font, bold: opts.bold || false, italic: opts.italic || false, size: opts.size || 10, name: "Arial" };
+      cell.alignment = { vertical: "middle", horizontal: opts.align || "left", wrapText: opts.wrap || false };
+      if (opts.border) {
+        const b = { style: "thin", color: { argb: "FFD0D5DD" } };
+        cell.border = { top: b, left: b, bottom: b, right: b };
+      }
+    };
+
+    // ── Row 1: Title ──
+    ws.mergeCells("A1:H1");
+    const t = ws.getCell("A1");
+    t.value = `TenderIQ  ·  ${projectName || "Analysis Results"}`;
+    style(t, { bg: "0A0E14", fg: "FFFFFF", bold: true, size: 13, align: "center" });
+    ws.getRow(1).height = 28;
+
+    // ── Row 2: Subtitle ──
+    ws.mergeCells("A2:H2");
+    const s = ws.getCell("A2");
+    s.value = `Generated ${new Date().toLocaleDateString()}  ·  ${found.length} parameters found  ·  ${params.length - found.length} not available`;
+    style(s, { bg: "1A1E28", fg: "8899AA", size: 9, align: "center" });
+    ws.getRow(2).height = 18;
+
+    // ── Row 3: blank ──
+    ws.getRow(3).height = 6;
+
+    let rowNum = 4;
+
+    const COL_LABELS = ["#", "Parameter", "Value", "Unit", "Confidence %", "Source Document", "Source Pages", "Status"];
+
+    PARAM_GROUPS.forEach(group => {
+      const groupParams = params.filter(p => p.group === group.id);
+      if (!groupParams.length) return;
+
+      // Section header
+      ws.mergeCells(`A${rowNum}:H${rowNum}`);
+      const sh = ws.getCell(`A${rowNum}`);
+      sh.value = group.label.toUpperCase();
+      style(sh, { bg: SECTION_COLORS[group.id] || "333333", fg: SECTION_TEXT, bold: true, size: 10.5, align: "center" });
+      ws.getRow(rowNum).height = 22;
+      rowNum++;
+
+      // Column headers
+      const hdr = ws.getRow(rowNum);
+      hdr.height = 18;
+      COL_LABELS.forEach((lbl, ci) => {
+        const cell = hdr.getCell(ci + 1);
+        cell.value = lbl;
+        style(cell, { bg: COL_HDR_BG, fg: COL_HDR_FG, bold: true, size: 9, align: ci === 1 ? "left" : "center", border: true });
+      });
+      rowNum++;
+
+      // Data rows
+      let altIdx = 0;
+      groupParams.forEach((p, pi) => {
+        const srcDoc = p.available && p.sources?.length
+          ? p.sources.map(s => s.document || "").filter(Boolean).join(" / ")
+          : "";
+        const srcPg = p.available && p.sources?.length
+          ? p.sources.flatMap(s => (s.pages || []).map(pg => `Pg.${pg}`)).join(", ")
+          : "";
+        const row = ws.getRow(rowNum);
+        row.height = 16;
+        const isEven = altIdx % 2 === 0;
+        altIdx++;
+
+        const vals = [
+          pi + 1,
+          p.label,
+          p.available ? (p.value || "—") : "—",
+          p.unit || "",
+          p.available ? (p.confidence != null ? `${p.confidence}%` : "—") : "—",
+          srcDoc || "—",
+          srcPg  || "—",
+          p.available ? "Available" : "Not Available",
+        ];
+
+        vals.forEach((v, ci) => {
+          const cell = row.getCell(ci + 1);
+          cell.value = v;
+          if (p.available) {
+            style(cell, {
+              bg: isEven ? FOUND_STRIPE_A : FOUND_STRIPE_B,
+              fg: ci === 1 ? "111827" : ci === 2 ? "1E3A5F" : ci === 4 ? (p.confidence >= 85 ? "15803D" : p.confidence >= 70 ? "B45309" : "B91C1C") : ci === 7 ? "15803D" : "374151",
+              bold: ci === 1 || ci === 2,
+              size: 9,
+              align: ci === 0 ? "center" : ci >= 3 ? "center" : "left",
+              border: true,
+            });
+          } else {
+            style(cell, {
+              bg: MISS_BG, fg: MISS_FG, italic: ci >= 1,
+              size: 9, align: ci === 0 ? "center" : ci >= 3 ? "center" : "left", border: true,
+            });
+          }
+        });
+        rowNum++;
+      });
+
+      // Blank separator
+      ws.getRow(rowNum).height = 8;
+      rowNum++;
+    });
+
+    // Stream to blob and trigger download
+    const buffer = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a"); a.href = url;
+    a.download = `TenderIQ_${projectName ? projectName.replace(/[^a-z0-9]/gi, "_") : projectId}.xlsx`;
+    a.click(); URL.revokeObjectURL(url);
   };
 
   const exportPDF = async () => {
@@ -402,49 +679,83 @@ export default function ResultsPanel({ token, projectId, projectName, onClose, i
     doc.setFontSize(9); doc.setTextColor(100, 100, 100);
     doc.text(`${foundCount} Found  ·  ${params.length - foundCount} Not Available  ·  Generated ${new Date().toLocaleDateString()}`, cx, 68, { align: "center" });
 
-    autoTable(doc, {
-      startY: 73,
-      head: [tableHead],
-      body: tableRows(),
-      styles: { fontSize: 8.5, cellPadding: 3, overflow: "linebreak" },
-      headStyles: { fillColor: [10, 14, 20], textColor: [255, 255, 255], fontStyle: "bold", fontSize: 9 },
-      alternateRowStyles: { fillColor: [245, 247, 250] },
-      columnStyles: {
-        0: { fontStyle: "bold", cellWidth: 38 },
-        1: { cellWidth: 55 },
-        2: { cellWidth: 22 },
-        3: { cellWidth: 20 },
-        4: { cellWidth: 14 },
-        5: { cellWidth: 22 },
-      },
-      didParseCell: (data) => {
-        if (data.section === "body" && data.column.index === 5) {
-          data.cell.styles.textColor = data.cell.raw === "Found" ? [34, 197, 94] : [150, 150, 150];
-        }
-      },
+    const SECTION_COLORS = {
+      technical_spec: [30, 58, 95],
+      tender_drawing: [26, 74, 58],
+      boq_hardware:   [61, 26, 95],
+      commercial:     [95, 51, 0],
+    };
+    const COL_LABELS = ["#", "Parameter", "Value", "Unit", "Conf.", "Source Doc", "Pages", "Status"];
+    const COL_WIDTHS = { 0: 8, 1: 40, 2: 42, 3: 16, 4: 12, 5: 28, 6: 18, 7: 14 };
+
+    let y = 73;
+    PARAM_GROUPS.forEach(group => {
+      const groupParams = params.filter(p => p.group === group.id);
+      if (!groupParams.length) return;
+
+      const sc = SECTION_COLORS[group.id] || [50, 50, 50];
+      const body = groupParams.map((p, pi) => {
+        const srcDoc = p.available && p.sources?.length ? p.sources.map(s => shortName(s.document || "")).filter(Boolean).join(" / ") : "—";
+        const srcPg  = p.available && p.sources?.length ? p.sources.flatMap(s => (s.pages || []).map(pg => `${pg}`)).join(", ") : "—";
+        return [
+          pi + 1,
+          p.label,
+          p.available ? (p.value || "—") : "—",
+          p.unit || "",
+          p.available ? (p.confidence != null ? `${p.confidence}%` : "—") : "—",
+          srcDoc, srcPg,
+          p.available ? "Available" : "N/A",
+        ];
+      });
+
+      autoTable(doc, {
+        startY: y,
+        head: [[{ content: group.label.toUpperCase(), colSpan: 8, styles: { halign: "left", fillColor: sc, textColor: [255, 255, 255], fontStyle: "bold", fontSize: 9, cellPadding: { top: 4, bottom: 4, left: 6, right: 6 } } }], COL_LABELS],
+        body,
+        styles: { fontSize: 7.5, cellPadding: 2.5, overflow: "linebreak", font: "helvetica" },
+        headStyles: { fillColor: [45, 55, 72], textColor: [255, 255, 255], fontStyle: "bold", fontSize: 8 },
+        alternateRowStyles: { fillColor: [247, 248, 250] },
+        columnStyles: COL_WIDTHS,
+        margin: { left: 10, right: 10 },
+        didParseCell: (data) => {
+          if (data.section === "body") {
+            const raw = groupParams[data.row.index];
+            if (!raw?.available) {
+              data.cell.styles.textColor = [180, 180, 180];
+              data.cell.styles.fontStyle = "italic";
+            }
+            if (data.column.index === 7 && raw?.available) {
+              data.cell.styles.textColor = [21, 128, 61];
+              data.cell.styles.fontStyle = "bold";
+            }
+            if (data.column.index === 4 && raw?.available && raw.confidence != null) {
+              data.cell.styles.textColor = raw.confidence >= 85 ? [21, 128, 61] : raw.confidence >= 70 ? [180, 83, 9] : [185, 28, 28];
+            }
+          }
+        },
+      });
+      y = doc.lastAutoTable.finalY + 6;
     });
 
-    doc.save(`TenderIQ_${projectId}.pdf`);
+    doc.save(`TenderIQ_${projectName ? projectName.replace(/[^a-z0-9]/gi, "_") : projectId}.pdf`);
   };
 
-  // ── Build grouped render list ─────────────────────────────────────────────
-  // Inject group-header sentinel objects between param rows
-  const buildGroupedList = () => {
-    if (!params.length) return [];
-    const items = [];
-    let lastGroup = null;
-    params.forEach((p, i) => {
-      const gid = p.group || "extra";
-      if (gid !== lastGroup) {
-        items.push({ __groupHeader: true, groupLabel: p.groupLabel || "Additional", groupId: gid, idx: i });
-        lastGroup = gid;
-      }
-      items.push({ ...p, __paramIdx: i });
-    });
-    return items;
-  };
+  // ── Filtered param list ───────────────────────────────────────────────────
+  const toggleGroup = (gid) => setCollapsedGroups(prev => {
+    const next = new Set(prev);
+    next.has(gid) ? next.delete(gid) : next.add(gid);
+    return next;
+  });
 
-  const groupedItems = buildGroupedList();
+  const filteredParams = params.filter(p => {
+    if (activeTab === "found"   && !p.available) return false;
+    if (activeTab === "missing" &&  p.available) return false;
+    if (filterText) {
+      const t = filterText.toLowerCase();
+      return p.label.toLowerCase().includes(t) || (p.value || "").toLowerCase().includes(t);
+    }
+    return true;
+  });
 
   return (
     <div style={{ height: "100%", display: "flex", flexDirection: "column", background: C.bg, borderLeft: isMobile ? "none" : `1px solid ${C.border}`, fontFamily: F.sans }}>
@@ -516,7 +827,7 @@ export default function ResultsPanel({ token, projectId, projectName, onClose, i
           <button
             onClick={handleReExtract}
             disabled={reExtracting || polling}
-            title="Re-run extraction to pick up all 27 parameters"
+            title={`Re-run extraction to pick up all ${REQUIRED_PARAMS.length} parameters`}
             style={{ padding: "4px 12px", background: "transparent", border: `1px solid ${C.greenBorder}`, borderRadius: 6, color: C.green, cursor: (reExtracting || polling) ? "default" : "pointer", fontSize: 11, fontFamily: F.sans, fontWeight: 500, opacity: (reExtracting || polling) ? 0.5 : 1, transition: "all 0.15s", display: "flex", alignItems: "center", gap: 5 }}
             onMouseEnter={e => { if (!reExtracting && !polling) e.currentTarget.style.background = C.greenSubtle; }}
             onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}>
@@ -585,8 +896,109 @@ export default function ResultsPanel({ token, projectId, projectName, onClose, i
         </div>
       )}
 
-      {/* Content */}
-      <div style={{ flex: 1, overflowY: "auto", padding: "12px 14px" }}>
+      {/* Pipeline Timings */}
+      {timings && (timings.summary?.length > 0 || timings.details?.length > 0) && (
+        <div style={{ borderBottom: `1px solid ${C.border}`, flexShrink: 0 }}>
+          <button
+            onClick={() => setShowTimings(v => !v)}
+            style={{ width: "100%", padding: "8px 18px", background: "none", border: "none", display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", color: C.text2 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <span style={{ fontSize: 11, fontWeight: 600, color: C.text3, textTransform: "uppercase", letterSpacing: "0.08em" }}>
+                ⏱ Pipeline Timings
+              </span>
+              {timings.total_seconds != null && (
+                <span style={{ fontSize: 10, color: C.green, fontWeight: 700 }}>
+                  {timings.total_seconds.toFixed(1)}s total
+                </span>
+              )}
+              {polling && (
+                <span style={{ fontSize: 10, color: C.warn }}>• live</span>
+              )}
+            </div>
+            <span style={{ fontSize: 10, color: C.text3 }}>{showTimings ? "▲" : "▼"}</span>
+          </button>
+
+          {showTimings && (
+            <div style={{ padding: "0 14px 12px" }}>
+              {/* Summary / All toggle */}
+              <div style={{ display: "flex", gap: 4, marginBottom: 8 }}>
+                {["summary", "all"].map(v => (
+                  <button key={v} onClick={() => setTimingView(v)}
+                    style={{ padding: "3px 10px", fontSize: 10, fontWeight: 600, fontFamily: F.sans, border: `1px solid ${timingView === v ? C.green : C.border}`, borderRadius: 4, background: timingView === v ? C.greenSubtle : "transparent", color: timingView === v ? C.green : C.text3, cursor: "pointer", transition: "all 0.15s", textTransform: "capitalize" }}>
+                    {v === "summary" ? "Key Steps" : "All Logs"}
+                  </button>
+                ))}
+              </div>
+
+              {/* Timing rows */}
+              {(() => {
+                const rows = timingView === "summary"
+                  ? (timings.summary || [])
+                  : (timings.all || []);
+                if (!rows.length) return (
+                  <div style={{ fontSize: 11, color: C.text3, padding: "6px 0" }}>
+                    No timing data yet — processing may still be starting…
+                  </div>
+                );
+                // Max duration for proportional bar width
+                const maxDur = Math.max(...rows.map(r => r.duration), 1);
+                return rows.map((entry, i) => {
+                  const pct = Math.max(4, Math.round((entry.duration / maxDur) * 100));
+                  const barColor = entry.duration < 2 ? C.ok : entry.duration < 10 ? C.warn : C.err;
+                  return (
+                    <div key={i} style={{ marginBottom: 6, padding: "7px 10px", background: C.bg1, borderRadius: 7, border: `1px solid ${C.border}` }}>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 4 }}>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <span style={{ fontSize: 11, fontWeight: 600, color: C.text1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", display: "block" }}>
+                            {entry.label}
+                          </span>
+                          {entry.detail && (
+                            <span style={{ fontSize: 10, color: C.text3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", display: "block" }}>
+                              {entry.detail}
+                            </span>
+                          )}
+                        </div>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: barColor, flexShrink: 0 }}>
+                          {entry.duration.toFixed(2)}s
+                        </span>
+                      </div>
+                      {/* Duration bar */}
+                      <div style={{ height: 3, background: C.border, borderRadius: 2, overflow: "hidden" }}>
+                        <div style={{ height: "100%", width: `${pct}%`, background: barColor, borderRadius: 2, transition: "width 0.4s ease" }} />
+                      </div>
+                    </div>
+                  );
+                });
+              })()}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Filter / Tab bar ── */}
+      {!loading && params.length > 0 && (
+        <div style={{ padding: "8px 14px", borderBottom: `1px solid ${C.border}`, display: "flex", gap: 8, alignItems: "center", flexShrink: 0, background: C.bg }}>
+          <input
+            value={filterText}
+            onChange={e => setFilterText(e.target.value)}
+            placeholder="Search parameters…"
+            style={{ flex: 1, padding: "5px 10px", background: C.bg2, border: `1px solid ${C.border}`, borderRadius: 6, color: C.text1, fontSize: 11, fontFamily: F.sans, outline: "none", minWidth: 0 }}
+          />
+          {[
+            { id: "all",     label: `All (${params.length})` },
+            { id: "found",   label: `Found (${found.length})` },
+            { id: "missing", label: `Missing (${params.length - found.length})` },
+          ].map(tab => (
+            <button key={tab.id} onClick={() => setActiveTab(tab.id)}
+              style={{ padding: "4px 10px", fontSize: 10, fontWeight: 600, fontFamily: F.sans, borderRadius: 5, border: `1px solid ${activeTab === tab.id ? C.greenBorder : C.border}`, background: activeTab === tab.id ? C.greenSubtle : "transparent", color: activeTab === tab.id ? C.green : C.text3, cursor: "pointer", whiteSpace: "nowrap", transition: "all 0.12s" }}>
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* ── Compact table ── */}
+      <div style={{ flex: 1, overflowY: "auto" }}>
         {(loading || (polling && params.length === 0)) && (
           <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: 120 }}>
             <div style={{ display: "flex", gap: 6 }}>
@@ -597,154 +1009,164 @@ export default function ResultsPanel({ token, projectId, projectName, onClose, i
           </div>
         )}
         {error && (
-          <div style={{ padding: "12px 14px", background: "rgba(255,90,90,0.06)", border: `1px solid rgba(255,90,90,0.15)`, borderRadius: 8, color: C.err, fontSize: 13, marginTop: 8 }}>
+          <div style={{ margin: "12px 14px", padding: "10px 14px", background: "rgba(255,90,90,0.06)", border: `1px solid rgba(255,90,90,0.15)`, borderRadius: 8, color: C.err, fontSize: 12 }}>
             {error}
           </div>
         )}
 
-        {!loading && groupedItems.map((item, idx) => {
-          // ── Group header ──
-          if (item.__groupHeader) {
-            const groupParams = params.filter(p => (p.group || "extra") === item.groupId);
-            const groupFound = groupParams.filter(p => p.available).length;
+        {!loading && (() => {
+          const allGroups = [...PARAM_GROUPS, ...(filteredParams.some(p => p.extra) ? [{ id: "extra", label: "Additional" }] : [])];
+          return allGroups.map(group => {
+            const gParams = filteredParams.filter(p => (p.group || "extra") === group.id);
+            if (!gParams.length) return null;
+            const gFound = gParams.filter(p => p.available).length;
+            const collapsed = collapsedGroups.has(group.id);
             return (
-              <div key={`group-${item.groupId}`} style={{ display: "flex", alignItems: "center", gap: 8, margin: idx === 0 ? "4px 0 8px" : "16px 0 8px" }}>
-                <span style={{ fontSize: 10, color: C.text3, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", whiteSpace: "nowrap" }}>
-                  {item.groupLabel}
-                </span>
-                <div style={{ flex: 1, height: 1, background: C.border }} />
-                <span style={{ fontSize: 10, color: groupFound > 0 ? C.ok : C.text3, fontWeight: 600, whiteSpace: "nowrap" }}>
-                  {groupFound}/{groupParams.length}
-                </span>
-              </div>
-            );
-          }
-
-          // ── Parameter row ──
-          const i = item.__paramIdx;
-          const r = item;
-          const isExpanded = expandedIdx === i;
-
-          return (
-            <div key={i}
-              onClick={() => r.available && setExpandedIdx(isExpanded ? null : i)}
-              onDoubleClick={() => r.available && setPopup(r)}
-              style={{ padding: "12px 14px", background: r.available ? C.bg1 : "transparent", borderRadius: 8, marginBottom: 6, border: `1px solid ${isExpanded ? C.greenBorder : C.border}`, opacity: r.available ? 1 : 0.45, transition: "border-color 0.15s, opacity 0.15s", cursor: r.available ? "pointer" : "default" }}
-              onMouseEnter={e => { if (r.available) e.currentTarget.style.borderColor = C.greenBorder; }}
-              onMouseLeave={e => { if (r.available && !isExpanded) e.currentTarget.style.borderColor = C.border; }}>
-              <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 10, color: C.text3, marginBottom: 4, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", display: "flex", alignItems: "center", gap: 5 }}>
-                    {r.label}
-                    <span style={{ fontSize: 9, color: C.text3, fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>· {r.unit}</span>
-                  </div>
-                  {r.available ? (
-                    <div style={{ fontSize: 14, color: C.text1, fontWeight: 600, fontFamily: F.mono, wordBreak: "break-word", whiteSpace: isExpanded ? "pre-wrap" : "nowrap", overflow: isExpanded ? "visible" : "hidden", textOverflow: isExpanded ? "clip" : "ellipsis" }}>
-                      {r.value}
-                    </div>
-                  ) : (
-                    <div style={{ fontSize: 13, color: C.text3, fontStyle: "italic", display: "flex", alignItems: "center", gap: 6 }}>
-                      {polling ? (
-                        <>
-                          <div style={{ width: 6, height: 6, borderRadius: "50%", background: C.warn, animation: "pulse 1.4s ease infinite", flexShrink: 0 }} />
-                          Scanning documents…
-                        </>
-                      ) : "Not available in document"}
-                    </div>
-                  )}
-                  {r.available && r.section && isExpanded && (
-                    <div style={{ marginTop: 5 }}>
-                      <span style={{ fontSize: 10, color: C.text3, lineHeight: 1.4 }}>{r.section}</span>
-                    </div>
-                  )}
-                  {r.available && r.notes && (
-                    <div style={{ fontSize: 11, color: C.text3, marginTop: 6, lineHeight: 1.5, ...(isExpanded ? {} : { overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }) }}>
-                      {r.notes}
-                    </div>
-                  )}
+              <div key={group.id}>
+                {/* Section header */}
+                <div
+                  onClick={() => toggleGroup(group.id)}
+                  style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 14px 6px", cursor: "pointer", position: "sticky", top: 0, background: C.bg, zIndex: 10, borderBottom: `1px solid ${C.border}` }}>
+                  <span style={{ fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", color: C.text3, whiteSpace: "nowrap" }}>
+                    {group.label}
+                  </span>
+                  <div style={{ flex: 1, height: 1, background: C.border }} />
+                  <span style={{ fontSize: 9, color: gFound > 0 ? C.ok : C.text3, fontWeight: 700, whiteSpace: "nowrap" }}>
+                    {gFound}/{gParams.length}
+                  </span>
+                  <span style={{ fontSize: 9, color: C.text3, marginLeft: 2 }}>{collapsed ? "▶" : "▼"}</span>
                 </div>
-                {r.available ? (
-                  <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4, flexShrink: 0 }}>
-                    <div style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "3px 8px", borderRadius: 12, background: `${confidenceColor(r.confidence)}12`, fontSize: 11, fontWeight: 600, color: confidenceColor(r.confidence) }}>
-                      <div style={{ width: 5, height: 5, borderRadius: "50%", background: confidenceColor(r.confidence) }} />
-                      {r.confidence}%
-                    </div>
-                    <SourceBadges sources={r.sources} isExpanded={isExpanded} />
-                  </div>
-                ) : (
-                  <div style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "3px 8px", borderRadius: 12, background: "rgba(255,255,255,0.04)", fontSize: 11, fontWeight: 600, color: C.text3, flexShrink: 0 }}>
-                    —
+
+                {/* Column sub-header */}
+                {!collapsed && (
+                  <div style={{ display: "grid", gridTemplateColumns: "minmax(0,2.2fr) minmax(0,1.8fr) 56px 90px", padding: "4px 14px", background: C.bg2, borderBottom: `1px solid ${C.border}` }}>
+                    {["Parameter", "Value", "Conf.", "Source"].map(h => (
+                      <span key={h} style={{ fontSize: 9, fontWeight: 700, color: C.text3, textTransform: "uppercase", letterSpacing: "0.06em" }}>{h}</span>
+                    ))}
                   </div>
                 )}
-              </div>
-            </div>
-          );
-        })}
-      </div>
 
-      {/* Footer */}
-      <div style={{ padding: "12px 18px", borderTop: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center", flexShrink: 0 }}>
-        <div style={{ fontSize: 11, color: C.text3 }}>{params.length} parameters tracked</div>
-        {found.length > 0 && (
-          <div style={{ fontSize: 11, color: C.ok, fontWeight: 500, display: "flex", alignItems: "center", gap: 4 }}>
-            <div style={{ width: 6, height: 6, borderRadius: "50%", background: C.ok }} />
-            Avg confidence: {Math.round(found.reduce((a, b) => a + b.confidence, 0) / found.length)}%
+                {/* Rows */}
+                {!collapsed && gParams.map((r, ri) => {
+                  const srcStr = r.available && r.sources?.length
+                    ? r.sources.map(s => {
+                        const pgs = (s.pages || []).slice(0, 2).map(pg => `p${pg}`).join(",");
+                        const more = (s.pages || []).length > 2 ? `+${(s.pages || []).length - 2}` : "";
+                        return pgs ? `${pgs}${more}` : shortName(s.document || "");
+                      }).join(" ")
+                    : "";
+                  const isEven = ri % 2 === 0;
+                  return (
+                    <div key={ri}
+                      onClick={() => r.available && setPopup(r)}
+                      style={{ display: "grid", gridTemplateColumns: "minmax(0,2.2fr) minmax(0,1.8fr) 56px 90px", padding: "6px 14px", background: isEven ? "transparent" : `${C.bg2}80`, borderBottom: `1px solid ${C.border}40`, cursor: r.available ? "pointer" : "default", opacity: r.available ? 1 : 0.5, transition: "background 0.1s" }}
+                      onMouseEnter={e => { if (r.available) e.currentTarget.style.background = `${C.greenSubtle}`; }}
+                      onMouseLeave={e => { e.currentTarget.style.background = isEven ? "transparent" : `${C.bg2}80`; }}>
+                      {/* Parameter name */}
+                      <div style={{ minWidth: 0, paddingRight: 8 }}>
+                        <div style={{ fontSize: 11, fontWeight: 500, color: r.available ? C.text1 : C.text3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={r.label}>
+                          {r.label}
+                        </div>
+                        <div style={{ fontSize: 9, color: C.text3, marginTop: 1 }}>{r.unit}</div>
+                      </div>
+                      {/* Value */}
+                      <div style={{ minWidth: 0, paddingRight: 8 }}>
+                        {r.available ? (
+                          <div style={{ fontSize: 11, fontWeight: 600, color: C.text1, fontFamily: F.mono, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={r.value}>
+                            {r.value}
+                          </div>
+                        ) : (
+                          <div style={{ fontSize: 10, color: C.text3, fontStyle: "italic" }}>
+                            {polling ? "scanning…" : "—"}
+                          </div>
+                        )}
+                      </div>
+                      {/* Confidence */}
+                      <div style={{ display: "flex", alignItems: "flex-start" }}>
+                        {r.available && r.confidence != null ? (
+                          <span style={{ fontSize: 10, fontWeight: 700, color: confidenceColor(r.confidence), background: `${confidenceColor(r.confidence)}14`, padding: "2px 6px", borderRadius: 4 }}>
+                            {r.confidence}%
+                          </span>
+                        ) : <span style={{ fontSize: 10, color: C.text3 }}>—</span>}
+                      </div>
+                      {/* Source */}
+                      <div style={{ display: "flex", alignItems: "flex-start", gap: 3, flexWrap: "wrap" }}>
+                        {srcStr ? (
+                          <span style={{ fontSize: 9, color: C.green, fontWeight: 600, background: C.greenSubtle, border: `1px solid ${C.greenBorder}`, padding: "2px 5px", borderRadius: 3 }} title={r.sources?.map(s => `${s.document}: ${(s.pages || []).map(p => `Pg.${p}`).join(", ")}`).join(" | ")}>
+                            {srcStr}
+                          </span>
+                        ) : <span style={{ fontSize: 9, color: C.text3 }}>—</span>}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          });
+        })()}
+
+        {/* Empty state */}
+        {!loading && filteredParams.length === 0 && params.length > 0 && (
+          <div style={{ textAlign: "center", padding: "40px 20px", color: C.text3, fontSize: 12 }}>
+            No parameters match your filter
           </div>
         )}
       </div>
 
-      {/* ── Double-click Popup Modal ── */}
+      {/* ── Footer ── */}
+      <div style={{ padding: "8px 14px", borderTop: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center", flexShrink: 0 }}>
+        <div style={{ fontSize: 10, color: C.text3 }}>{params.length} params · {found.length} found</div>
+        {found.length > 0 && (
+          <div style={{ fontSize: 10, color: C.ok, fontWeight: 600 }}>
+            avg {Math.round(found.reduce((a, b) => a + b.confidence, 0) / found.length)}% confidence
+          </div>
+        )}
+      </div>
+
+      {/* ── Click Popup Modal ── */}
       {popup && (
         <div onClick={() => setPopup(null)}
-          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", zIndex: 600, display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(4px)", padding: 24, animation: "fadeUp 0.2s ease" }}>
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.65)", zIndex: 600, display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(4px)", padding: 20 }}>
           <div onClick={e => e.stopPropagation()}
-            style={{ background: C.bg1, borderRadius: 16, border: `1px solid ${C.greenBorder}`, width: "100%", maxWidth: 520, boxShadow: "0 24px 64px rgba(0,0,0,0.5)", animation: "fadeUp 0.2s ease" }}>
+            style={{ background: C.bg1, borderRadius: 14, border: `1px solid ${C.greenBorder}`, width: "100%", maxWidth: 500, boxShadow: "0 20px 60px rgba(0,0,0,0.5)", overflow: "hidden" }}>
             {/* Modal header */}
-            <div style={{ padding: "18px 20px 14px", borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
-              <div>
-                <div style={{ fontSize: 11, color: C.text3, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 4 }}>{popup.label}</div>
-                <div style={{ fontSize: 11, color: C.text3 }}>{popup.unit}</div>
+            <div style={{ padding: "14px 18px 12px", borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 10, color: C.text3, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 3 }}>{popup.groupLabel}</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: C.text1 }}>{popup.label}</div>
+                <div style={{ fontSize: 10, color: C.text3, marginTop: 2 }}>{popup.unit}</div>
               </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <div style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "4px 10px", borderRadius: 12, background: `${confidenceColor(popup.confidence)}15`, fontSize: 12, fontWeight: 700, color: confidenceColor(popup.confidence) }}>
-                  <div style={{ width: 6, height: 6, borderRadius: "50%", background: confidenceColor(popup.confidence) }} />
-                  {popup.confidence}% confidence
-                </div>
-                {popup.sources?.length > 0 && popup.sources.flatMap(s => (s.pages || []).map(pg => (
-                  <span key={`${s.document}-${pg}`} title={s.document || undefined}
-                    style={{ display: "inline-flex", alignItems: "center", padding: "4px 10px", background: C.greenSubtle, border: `1px solid ${C.greenBorder}`, borderRadius: 12, fontSize: 11, fontWeight: 600, color: C.green }}>
-                    Pg. {pg}
+              <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+                {popup.confidence != null && (
+                  <span style={{ fontSize: 11, fontWeight: 700, color: confidenceColor(popup.confidence), background: `${confidenceColor(popup.confidence)}14`, padding: "3px 8px", borderRadius: 6 }}>
+                    {popup.confidence}%
                   </span>
-                )))}
+                )}
                 <button onClick={() => setPopup(null)} style={{ background: "none", border: "none", color: C.text3, cursor: "pointer", padding: 2, display: "flex" }}>
                   <CloseIcon />
                 </button>
               </div>
             </div>
-            {/* Modal body */}
-            <div style={{ padding: "20px" }}>
-              <div style={{ fontSize: 22, color: C.text1, fontWeight: 700, fontFamily: F.mono, marginBottom: 16, wordBreak: "break-word", lineHeight: 1.4 }}>
+            {/* Value */}
+            <div style={{ padding: "16px 18px 0" }}>
+              <div style={{ fontSize: 18, color: C.text1, fontWeight: 700, fontFamily: F.mono, wordBreak: "break-word", lineHeight: 1.5, marginBottom: 14 }}>
                 {popup.value}
               </div>
-              {/* Sources breakdown */}
+              {/* Sources */}
               {popup.sources?.length > 0 && (
-                <div style={{ marginBottom: 14, display: "flex", flexDirection: "column", gap: 4 }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: 5, marginBottom: 14 }}>
                   {popup.sources.map((src, idx) => (
-                    <div key={idx} style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 10px", background: C.bg, borderRadius: 6, border: `1px solid ${C.border}` }}>
-                      <span style={{ fontSize: 12 }}>{fileIcon(src.document?.split(".").pop())}</span>
+                    <div key={idx} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 10px", background: C.bg, borderRadius: 7, border: `1px solid ${C.border}` }}>
+                      <span style={{ fontSize: 13 }}>{fileIcon(src.document?.split(".").pop())}</span>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 11, fontWeight: 600, color: C.text1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={src.document}>
                           {src.document || "Unknown document"}
                         </div>
-                        {src.section && (
-                          <div style={{ fontSize: 10, color: C.text3, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                            {src.section}
-                          </div>
-                        )}
+                        {src.section && <div style={{ fontSize: 9, color: C.text3, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{src.section}</div>}
                       </div>
-                      <div style={{ display: "flex", gap: 3, flexShrink: 0 }}>
+                      <div style={{ display: "flex", gap: 3, flexShrink: 0, flexWrap: "wrap" }}>
                         {(src.pages || []).map(pg => (
-                          <span key={pg} style={{ padding: "2px 7px", background: C.greenSubtle, border: `1px solid ${C.greenBorder}`, borderRadius: 4, fontSize: 10, fontWeight: 600, color: C.green }}>
+                          <span key={pg} style={{ padding: "2px 6px", background: C.greenSubtle, border: `1px solid ${C.greenBorder}`, borderRadius: 4, fontSize: 10, fontWeight: 600, color: C.green }}>
                             Pg.{pg}
                           </span>
                         ))}
@@ -753,19 +1175,14 @@ export default function ResultsPanel({ token, projectId, projectName, onClose, i
                   ))}
                 </div>
               )}
-              {!popup.sources?.length && popup.section && (
-                <div style={{ marginBottom: 14 }}>
-                  <span style={{ fontSize: 11, color: C.text2, lineHeight: 1.4 }}>{popup.section}</span>
-                </div>
-              )}
               {popup.notes && (
-                <div style={{ fontSize: 13, color: C.text2, lineHeight: 1.65, padding: "12px 14px", background: C.bg, borderRadius: 8, border: `1px solid ${C.border}`, whiteSpace: "pre-wrap" }}>
+                <div style={{ fontSize: 12, color: C.text2, lineHeight: 1.65, padding: "10px 12px", background: C.bg, borderRadius: 7, border: `1px solid ${C.border}`, whiteSpace: "pre-wrap", marginBottom: 14 }}>
                   {popup.notes}
                 </div>
               )}
             </div>
-            <div style={{ padding: "10px 20px 16px", textAlign: "center" }}>
-              <span style={{ fontSize: 11, color: C.text3 }}>Click outside to close</span>
+            <div style={{ padding: "8px 18px 14px", textAlign: "center" }}>
+              <span style={{ fontSize: 10, color: C.text3 }}>Click outside to close</span>
             </div>
           </div>
         </div>

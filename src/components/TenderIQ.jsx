@@ -78,6 +78,25 @@ export default function TenderIQ() {
   const chatEnd = useRef(null);
   const dragState = useRef(null);
 
+  // Auto-login with default credentials
+  useEffect(() => {
+    api.login("abc@sooru.ai", "12345678")
+      .then(data => {
+        setToken(data.access_token);
+        setScreen("main");
+        api.listProjects(data.access_token).then(projects => {
+          if (Array.isArray(projects) && projects.length > 0) {
+            setChats(projects.map(p => ({
+              id: p.project_id || p.id,
+              title: p.project_name || p.name || "Untitled",
+              date: p.created_at ? new Date(p.created_at).toLocaleDateString() : "",
+            })));
+          }
+        });
+      })
+      .catch(() => {}); // fall through to login screen if it fails
+  }, []);
+
   // Responsive
   useEffect(() => {
     const c = () => setIsMob(window.innerWidth < 768);
@@ -559,7 +578,7 @@ export default function TenderIQ() {
                   onMouseLeave={e => e.currentTarget.style.color = C.text3}>
                   <UploadIcon />
                 </button>
-                <input ref={fileRef} type="file" multiple accept=".pdf,.xlsx,.xls,.docx,.doc" style={{ display: "none" }}
+                <input ref={fileRef} type="file" multiple accept=".pdf,.xlsx,.xls,.docx,.doc,.dxf,.dwg" style={{ display: "none" }}
                   onChange={e => { setFiles(Array.from(e.target.files)); e.target.value = ""; }} />
                 <textarea value={input} onChange={e => setInput(e.target.value)}
                   onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); } }}

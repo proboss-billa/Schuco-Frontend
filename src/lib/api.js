@@ -84,6 +84,18 @@ export const api = {
     return res.json();
   },
 
+  async getTimings(token, projectId) {
+    try {
+      const res = await fetch(`${BASE}/projects/${projectId}/timings`, {
+        headers: authHeaders(token),
+      });
+      if (!res.ok) return null;
+      return res.json();
+    } catch {
+      return null;
+    }
+  },
+
   async listProjects(token) {
     try {
       const res = await fetch(`${BASE}/projects`, {
