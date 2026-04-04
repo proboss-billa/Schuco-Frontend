@@ -745,11 +745,36 @@ export default function ResultsPanel({ token, projectId, projectName, onClose, i
                         )}
                       </div>
                     </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 3, flexShrink: 0 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
                       <div style={{ width: 6, height: 6, borderRadius: "50%", background: statusColor, animation: isProcessing ? "pulse 1.2s ease infinite" : "none" }} />
                       <span style={{ fontSize: 10, color: statusColor, fontWeight: 600 }}>
                         {statusLabel}
                       </span>
+                      {(st === "completed" || st === "failed") && (
+                        <button
+                          title="Re-process this document"
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            try {
+                              await api.reprocessDocument(token, projectId, doc.document_id);
+                              setRefreshKey(k => k + 1);
+                            } catch (err) {
+                              console.error("Reprocess failed:", err);
+                            }
+                          }}
+                          style={{
+                            background: "none", border: `1px solid ${C.border}`, borderRadius: 4,
+                            color: C.text3, cursor: "pointer", padding: "1px 5px", fontSize: 10,
+                            fontWeight: 600, marginLeft: 2, transition: "all 0.15s",
+                          }}
+                          onMouseEnter={e => { e.currentTarget.style.color = C.green; e.currentTarget.style.borderColor = C.green; }}
+                          onMouseLeave={e => { e.currentTarget.style.color = C.text3; e.currentTarget.style.borderColor = C.border; }}
+                        >
+                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: "middle" }}>
+                            <polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+                          </svg>
+                        </button>
+                      )}
                     </div>
                   </div>
                 );

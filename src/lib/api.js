@@ -65,6 +65,15 @@ export const api = {
     return res.json();
   },
 
+  async reprocessDocument(token, projectId, documentId) {
+    const res = await fetch(`${BASE}/projects/${projectId}/documents/${documentId}/reprocess`, {
+      method: "POST",
+      headers: authHeaders(token),
+    });
+    if (!res.ok) throw new Error(await res.text());
+    return res.json();
+  },
+
   async reExtractSingle(token, projectId, paramKey) {
     const res = await fetch(`${BASE}/projects/${projectId}/parameters/${paramKey}/re-extract`, {
       method: "POST",
