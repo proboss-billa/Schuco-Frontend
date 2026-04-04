@@ -24,10 +24,11 @@ export const api = {
     return res.json();
   },
 
-  async createProject(token, name, description, files) {
+  async createProject(token, name, description, files, projectType = "commercial") {
     const form = new FormData();
     form.append("project_name", name);
     form.append("project_description", description || "");
+    form.append("project_type", projectType || "commercial");
     files.forEach((f) => form.append("files", f));
     const res = await fetch(`${BASE}/projects/create`, {
       method: "POST",

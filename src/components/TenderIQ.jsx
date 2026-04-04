@@ -72,7 +72,13 @@ export default function TenderIQ() {
   const [deleteModal, setDeleteModal] = useState(null);
   const [currentProjectId, setCurrentProjectId] = useState(null);
   const [currentProjectName, setCurrentProjectName] = useState("");
+  const [currentProjectType, setCurrentProjectType] = useState("commercial");
   const [chats, setChats] = useState([]);
+  // Project creation dialog state
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [createDialogName, setCreateDialogName] = useState("");
+  const [createDialogType, setCreateDialogType] = useState("commercial");
+  const [pendingFiles, setPendingFiles] = useState([]);
   const [chatCounts, setChatCounts] = useState({});
   const fileRef = useRef(null);
   const chatEnd = useRef(null);
@@ -89,7 +95,9 @@ export default function TenderIQ() {
             setChats(projects.map(p => ({
               id: p.project_id || p.id,
               title: p.project_name || p.name || "Untitled",
-              date: p.created_at ? new Date(p.created_at).toLocaleDateString() : "",
+              type: p.project_type || "commercial",
+              date: p.created_at || "",
+              updated: p.updated_at || p.created_at || "",
             })));
           }
         });
@@ -190,27 +198,18 @@ export default function TenderIQ() {
     setMsgs(newMsgs);
 
     if (uploadedFiles.length > 0) {
-      // Upload + process flow
-      const projectName = userText || uploadedFiles[0].name.replace(/\.[^/.]+$/, "");
-      runTypingAnimation(async () => {
-        try {
-          const created = await api.createProject(token, projectName, "", uploadedFiles);
-          const pid = created.project_id;
-          await api.processProject(token, pid);
-          setCurrentProjectId(pid);
-          setCurrentProjectName(projectName);
-          setShowResults(true);
-          const assistantMsg = {
-            role: "assistant", type: "analysis",
-            content: `I've analyzed **${projectName}** and extracted the key parameters. You can see the structured results in the side panel.\n\nWhat would you like to dive deeper into?`,
-          };
-          setMsgs([...newMsgs, assistantMsg]);
-          // Add to sidebar
-          setChats(prev => [{ id: pid, title: projectName, date: "Today" }, ...prev]);
-        } catch (e) {
-          setMsgs([...newMsgs, { role: "assistant", type: "text", content: `Error during analysis: ${e.message}` }]);
-        }
-      });
+      // Show project creation dialog instead of immediately processing
+      const defaultName = userText || uploadedFiles[0].name.replace(/\.[^/.]+$/, "");
+      setPendingFiles(uploadedFiles);
+      setCreateDialogName(defaultName);
+      // Try to auto-detect type from filename keywords
+      const allNames = uploadedFiles.map(f => f.name.toLowerCase()).join(" ");
+      const residentialHints = ["residential", "villa", "apartment", "flat", "house", "dwelling", "home", "tower", "floor"];
+      const isResidential = residentialHints.some(kw => allNames.includes(kw));
+      setCreateDialogType(isResidential ? "residential" : "commercial");
+      setShowCreateDialog(true);
+      // Store current msgs for later continuation
+      return;
     } else if (currentProjectId) {
       // Chat with existing project
       try {
@@ -230,9 +229,44 @@ export default function TenderIQ() {
     }
   };
 
+  // ── Create project after dialog confirmation ──
+  const handleCreateProject = () => {
+    const projectName = createDialogName.trim() || "Untitled Project";
+    const projectType = createDialogType;
+    const uploadedFiles = pendingFiles;
+    setShowCreateDialog(false);
+    setPendingFiles([]);
+
+    const userMsg = { role: "user", type: "file", content: uploadedFiles.map(f => f.name).join(", "), text: projectName };
+    const newMsgs = [...msgs, userMsg];
+    setMsgs(newMsgs);
+
+    runTypingAnimation(async () => {
+      try {
+        const created = await api.createProject(token, projectName, "", uploadedFiles, projectType);
+        const pid = created.project_id;
+        await api.processProject(token, pid);
+        setCurrentProjectId(pid);
+        setCurrentProjectName(projectName);
+        setCurrentProjectType(projectType);
+        setShowResults(true);
+        const typeLabel = projectType === "residential" ? "Residential" : "Commercial";
+        const assistantMsg = {
+          role: "assistant", type: "analysis",
+          content: `I've analyzed **${projectName}** (${typeLabel}) and extracted the key parameters. You can see the structured results in the side panel.\n\nWhat would you like to dive deeper into?`,
+        };
+        setMsgs([...newMsgs, assistantMsg]);
+        setChats(prev => [{ id: pid, title: projectName, type: projectType, date: "Today", updated: "Just now" }, ...prev]);
+      } catch (e) {
+        setMsgs([...newMsgs, { role: "assistant", type: "text", content: `Error during analysis: ${e.message}` }]);
+      }
+    });
+  };
+
   const openChat = (chat) => {
     setCurrentProjectId(chat.id);
     setCurrentProjectName(chat.title);
+    setCurrentProjectType(chat.type || "commercial");
     setMsgs([
       { role: "user", type: "file", content: `${chat.title}.pdf`, text: "Load this analysis" },
       { role: "assistant", type: "analysis", content: `Loaded **${chat.title}**. The extracted parameters are ready in the side panel. What would you like to know?` },
@@ -250,6 +284,9 @@ export default function TenderIQ() {
     setIsTyping(false);
     setCurrentProjectId(null);
     setCurrentProjectName("");
+    setCurrentProjectType("commercial");
+    setShowCreateDialog(false);
+    setPendingFiles([]);
   };
 
   // ── Auth screen ──
@@ -369,18 +406,35 @@ export default function TenderIQ() {
             <>
               <div style={{ fontSize: 10, fontWeight: 600, color: C.text3, padding: "6px 8px 5px", letterSpacing: "0.1em", textTransform: "uppercase" }}>Recent</div>
               {chats.length === 0 && <div style={{ padding: "10px 8px", fontSize: 12, color: C.text3 }}>No analyses yet</div>}
-              {chats.map(chat => (
-                <div key={chat.id} style={{ position: "relative", marginBottom: 1 }}>
+              {chats.map(chat => {
+                const isComm = (chat.type || "commercial") === "commercial";
+                const typeBadge = isComm ? "C" : "R";
+                const typeBg = isComm ? "rgba(74,158,255,0.15)" : "rgba(0,196,140,0.15)";
+                const typeColor = isComm ? "#4A9EFF" : "#00C48C";
+                const fmtDate = (d) => {
+                  if (!d) return "";
+                  try { const dt = new Date(d); return dt.toLocaleDateString("en-IN", { day: "2-digit", month: "short" }) + " " + dt.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: false }); } catch { return ""; }
+                };
+                return (
+                <div key={chat.id} style={{ position: "relative", marginBottom: 2 }}>
                   <button onClick={() => openChat(chat)} onContextMenu={e => handleCtx(e, chat)}
-                    style={{ width: "100%", padding: "8px 30px 8px 10px", background: currentProjectId === chat.id ? C.bg2 : "transparent", border: "none", borderRadius: 7, color: currentProjectId === chat.id ? C.text1 : C.text2, cursor: "pointer", textAlign: "left", fontFamily: F.sans, fontSize: 13, display: "flex", alignItems: "center", gap: 8, transition: "all 0.1s" }}
+                    style={{ width: "100%", padding: "8px 28px 8px 10px", background: currentProjectId === chat.id ? C.bg2 : "transparent", border: "none", borderRadius: 7, color: currentProjectId === chat.id ? C.text1 : C.text2, cursor: "pointer", textAlign: "left", fontFamily: F.sans, fontSize: 12, display: "flex", alignItems: "flex-start", gap: 8, transition: "all 0.1s" }}
                     onMouseEnter={e => { if (currentProjectId !== chat.id) { e.currentTarget.style.background = C.bg2; e.currentTarget.style.color = C.text1; } }}
                     onMouseLeave={e => { if (currentProjectId !== chat.id) { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = C.text2; } }}>
-                    <div style={{ position: "relative", flexShrink: 0 }}>
+                    <div style={{ position: "relative", flexShrink: 0, marginTop: 2 }}>
                       <ChatIcon />
                     </div>
-                    <div style={{ flex: 1, overflow: "hidden" }}>
-                      <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{chat.title}</div>
-                      <div style={{ fontSize: 10, color: C.text3, marginTop: 1 }}>{chat.date}</div>
+                    <div style={{ flex: 1, overflow: "hidden", minWidth: 0 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 13, fontWeight: 500 }}>{chat.title}</span>
+                        <span style={{ fontSize: 9, fontWeight: 700, padding: "1px 4px", borderRadius: 3, background: typeBg, color: typeColor, flexShrink: 0, letterSpacing: "0.03em" }}>{typeBadge}</span>
+                      </div>
+                      <div style={{ fontSize: 10, color: C.text3, marginTop: 2, display: "flex", gap: 6 }}>
+                        <span title="Created">{fmtDate(chat.date)}</span>
+                        {chat.updated && chat.updated !== chat.date && (
+                          <span title="Last modified" style={{ opacity: 0.7 }}>| {fmtDate(chat.updated)}</span>
+                        )}
+                      </div>
                     </div>
                   </button>
                   <button onClick={e => handleCtx(e, chat)}
@@ -390,7 +444,8 @@ export default function TenderIQ() {
                     <MoreIcon />
                   </button>
                 </div>
-              ))}
+                );
+              })}
             </>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2, paddingTop: 4 }}>
@@ -468,7 +523,7 @@ export default function TenderIQ() {
                       e.preventDefault();
                       setIsDragging(false);
                       const dropped = Array.from(e.dataTransfer.files).filter(f =>
-                        /\.(pdf|docx?|xlsx?)$/i.test(f.name)
+                        /\.(pdf|docx?|xlsx?|csv|ods|dxf|dwg)$/i.test(f.name)
                       );
                       if (dropped.length) setFiles(dropped);
                     }}
@@ -488,7 +543,7 @@ export default function TenderIQ() {
                     </div>
                     <div style={{ fontSize: 12, color: C.text3, marginBottom: 16 }}>or click to browse</div>
                     <div style={{ display: "flex", justifyContent: "center", gap: 8, flexWrap: "wrap" }}>
-                      {["PDF", "DOCX", "XLSX"].map(ext => (
+                      {["PDF", "DOCX", "XLSX", "CSV"].map(ext => (
                         <span key={ext} style={{ padding: "3px 10px", background: C.bg, border: `1px solid ${C.border}`, borderRadius: 20, fontSize: 11, color: C.text3, fontWeight: 600 }}>{ext}</span>
                       ))}
                     </div>
@@ -673,6 +728,60 @@ export default function TenderIQ() {
         <DeleteModal name={deleteModal.title}
           onConfirm={() => { setChats(chats.filter(c => c.id !== deleteModal.id)); if (currentProjectId === deleteModal.id) newAnalysis(); setDeleteModal(null); }}
           onClose={() => setDeleteModal(null)} />
+      )}
+
+      {/* ── Project Creation Dialog ── */}
+      {showCreateDialog && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(10,14,20,0.85)", zIndex: 600, display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(4px)", animation: "fadeUp 0.2s ease" }}>
+          <div style={{ background: C.bg1, borderRadius: 20, padding: "32px 36px", border: `1px solid ${C.border}`, maxWidth: 420, width: "90%" }}>
+            <div style={{ fontSize: 18, fontWeight: 700, color: C.text1, marginBottom: 4 }}>New Project</div>
+            <div style={{ fontSize: 12, color: C.text3, marginBottom: 20 }}>{pendingFiles.length} file{pendingFiles.length !== 1 ? "s" : ""} selected</div>
+
+            {/* Project Name */}
+            <label style={{ fontSize: 11, fontWeight: 600, color: C.text2, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6, display: "block" }}>Project Name</label>
+            <input
+              value={createDialogName}
+              onChange={e => setCreateDialogName(e.target.value)}
+              onKeyDown={e => { if (e.key === "Enter") handleCreateProject(); }}
+              autoFocus
+              style={{ width: "100%", padding: "10px 14px", background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, color: C.text1, fontSize: 14, fontFamily: F.sans, outline: "none", marginBottom: 18, boxSizing: "border-box" }}
+              placeholder="Enter project name..."
+            />
+
+            {/* Project Type */}
+            <label style={{ fontSize: 11, fontWeight: 600, color: C.text2, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8, display: "block" }}>Project Type</label>
+            <div style={{ display: "flex", gap: 10, marginBottom: 24 }}>
+              {[
+                { value: "commercial", label: "Commercial", icon: "🏢", desc: "Office, Mall, IT Park" },
+                { value: "residential", label: "Residential", icon: "🏠", desc: "Villa, Apartment, Tower" },
+              ].map(opt => (
+                <button key={opt.value}
+                  onClick={() => setCreateDialogType(opt.value)}
+                  style={{
+                    flex: 1, padding: "14px 12px", background: createDialogType === opt.value ? (opt.value === "commercial" ? "rgba(74,158,255,0.1)" : "rgba(0,196,140,0.1)") : C.bg,
+                    border: `2px solid ${createDialogType === opt.value ? (opt.value === "commercial" ? "#4A9EFF" : "#00C48C") : C.border}`,
+                    borderRadius: 10, cursor: "pointer", textAlign: "center", transition: "all 0.15s", fontFamily: F.sans,
+                  }}>
+                  <div style={{ fontSize: 24, marginBottom: 4 }}>{opt.icon}</div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: createDialogType === opt.value ? C.text1 : C.text2 }}>{opt.label}</div>
+                  <div style={{ fontSize: 10, color: C.text3, marginTop: 2 }}>{opt.desc}</div>
+                </button>
+              ))}
+            </div>
+
+            {/* Actions */}
+            <div style={{ display: "flex", gap: 10 }}>
+              <button onClick={() => { setShowCreateDialog(false); setPendingFiles([]); }}
+                style={{ flex: 1, padding: "10px 0", background: "transparent", border: `1px solid ${C.border}`, borderRadius: 8, color: C.text2, cursor: "pointer", fontSize: 13, fontWeight: 600, fontFamily: F.sans }}>
+                Cancel
+              </button>
+              <button onClick={handleCreateProject}
+                style={{ flex: 1, padding: "10px 0", background: C.green, border: "none", borderRadius: 8, color: "#111", cursor: "pointer", fontSize: 13, fontWeight: 700, fontFamily: F.sans }}>
+                Start Analysis
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* ── Analysing overlay ── */}

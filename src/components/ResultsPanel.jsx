@@ -1,182 +1,9 @@
 "use client";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { C, F } from "@/lib/design";
 import { api } from "@/lib/api";
 import { CloseIcon, DownloadIcon } from "@/components/Icons";
-
-// ── Parameter groups (order + category labels) ───────────────────────────────
-const PARAM_GROUPS = [
-  {
-    id: "technical_spec",
-    label: "Technical Specification",
-    params: [
-      { key: "Wind Load",                                          label: "Wind Load",                                          unit: "kN/m² / Pa" },
-      { key: "Wind Load Zoning",                                   label: "Wind Load Zoning",                                   unit: "zone / kN/m²" },
-      { key: "Glass Thickness (Vision & Spandrel)",                label: "Glass Thickness (Vision & Spandrel)",                unit: "mm" },
-      { key: "Glass Thickness (Openable)",                         label: "Glass Thickness (Openable)",                         unit: "mm" },
-      { key: "Panel Modulation",                                   label: "Panel Modulation",                                   unit: "mm × mm" },
-      { key: "BMU Load",                                           label: "BMU Load",                                           unit: "kN / kg" },
-      { key: "Lighting Provision",                                 label: "Lighting Provision",                                 unit: "yes/no" },
-      { key: "Panel Typologies",                                   label: "Panel Typologies",                                   unit: "nos" },
-      { key: "Structural Member Wall Thickness",                   label: "Structural Member Wall Thickness",                   unit: "mm" },
-      { key: "Material of Gasket",                                 label: "Material of Gasket",                                 unit: "material" },
-      { key: "No. of Barriers",                                    label: "No. of Barriers",                                    unit: "nos" },
-      { key: "Stack Height",                                       label: "Stack Height",                                       unit: "mm" },
-      { key: "Vertical Stack Movement",                            label: "Vertical Stack Movement",                            unit: "mm" },
-      { key: "Bracket Type",                                       label: "Bracket Type",                                       unit: "type" },
-      { key: "Water Tightness",                                    label: "Water Tightness",                                    unit: "Pa / Class" },
-      { key: "Air Permeability",                                   label: "Air Permeability",                                   unit: "m³/h·m² / Class" },
-      { key: "Seismic Performance",                                label: "Seismic Performance",                                unit: "mm / zone" },
-      { key: "Acoustic Rating",                                    label: "Acoustic Rating",                                    unit: "dB / Rw" },
-      { key: "U-Value",                                            label: "U-Value",                                            unit: "W/m²K" },
-      { key: "Signage Load",                                       label: "Signage Load",                                       unit: "kN / kg" },
-      { key: "Horizontal Movement",                                label: "Horizontal Movement",                                unit: "mm" },
-      { key: "Face Width of Mullion",                              label: "Face Width of Mullion",                              unit: "mm" },
-      { key: "No. of Locking Points",                              label: "No. of Locking Points",                              unit: "nos" },
-      { key: "Sealant Bite",                                       label: "Sealant Bite",                                       unit: "mm" },
-      { key: "100% Dead Load on Sill / Intermediate Transom",      label: "100% Dead Load on Sill / Intermediate Transom",      unit: "yes/no" },
-      { key: "100% Dead Load on Glass Support (Openable)",         label: "100% Dead Load on Glass Support (Openable)",         unit: "yes/no" },
-      { key: "Distance – Slab to Mullion",                         label: "Distance – Slab to Mullion",                         unit: "mm" },
-      { key: "Load of Canopy",                                     label: "Load of Canopy",                                     unit: "kN / yes/no" },
-      { key: "Load of Catwalk",                                    label: "Load of Catwalk",                                    unit: "kN / yes/no" },
-      { key: "Inserts Required",                                   label: "Inserts Required",                                   unit: "yes/no" },
-      { key: "Movement of Slab Mounted Bracket",                   label: "Movement of Slab Mounted Bracket",                   unit: "mm" },
-      { key: "Location of Restrain Pin",                           label: "Location of Restrain Pin",                           unit: "mullion / transom" },
-      { key: "Gutter Sleeve Length & Thickness",                   label: "Gutter Sleeve Length & Thickness",                   unit: "mm" },
-      { key: "Openable Edge Guard – First Barrier Gasket",         label: "Openable Edge Guard – First Barrier Gasket",         unit: "yes/no" },
-      { key: "Drip Bar Edge Guard for Openable",                   label: "Drip Bar Edge Guard for Openable",                   unit: "material" },
-      { key: "Structural Adequacy in Open Condition",              label: "Structural Adequacy in Open Condition",              unit: "yes/no" },
-      { key: "Deflection Criteria",                                label: "Deflection Criteria",                                unit: "L/xxx / mm" },
-      { key: "Fire Rating",                                        label: "Fire Rating",                                        unit: "min / Class" },
-      { key: "Testing Standards (Onsite / Offsite)",               label: "Testing Standards (Onsite / Offsite)",               unit: "standard" },
-      { key: "Surface Finish",                                     label: "Surface Finish",                                     unit: "AAMA / µm" },
-      { key: "Corrosion Class for Fittings",                       label: "Corrosion Class for Fittings",                       unit: "class" },
-      { key: "Durability Test",                                    label: "Durability Test",                                    unit: "cycles / standard" },
-      { key: "Live Load Criteria for Railing",                     label: "Live Load Criteria for Railing",                     unit: "kN/m" },
-      { key: "Operating Force Requirement",                        label: "Operating Force Requirement",                        unit: "N" },
-      { key: "Easy Clean System in Openable",                      label: "Easy Clean System in Openable",                      unit: "yes/no" },
-      { key: "Limiting Stay in Openable",                          label: "Limiting Stay in Openable",                          unit: "yes/no" },
-      { key: "Door Closure Required",                              label: "Door Closure Required",                              unit: "yes/no" },
-      { key: "SS Screws & Hardware – Visible Area",                label: "SS Screws & Hardware – Visible Area",                unit: "SS 304 / 316" },
-      { key: "SS Screws & Hardware – Non-Visible Area",            label: "SS Screws & Hardware – Non-Visible Area",            unit: "SS 304 / 316" },
-      { key: "Aluminium Alloy (6063 / 6060)",                      label: "Aluminium Alloy (6063 / 6060)",                      unit: "alloy" },
-      { key: "Shims – Make / Type (HDG / PVC)",                    label: "Shims – Make / Type (HDG / PVC)",                    unit: "HDG / PVC" },
-      { key: "PMU Requirement",                                    label: "PMU Requirement",                                    unit: "yes/no" },
-      { key: "VMU Requirement",                                    label: "VMU Requirement",                                    unit: "yes/no" },
-    ],
-  },
-  {
-    id: "tender_drawing",
-    label: "Tender Drawing Requirements",
-    params: [
-      { key: "Drawing – Elevations",                               label: "Drawing – Elevations",                               unit: "yes/no" },
-      { key: "Drawing – Plan",                                     label: "Drawing – Plan",                                     unit: "yes/no" },
-      { key: "Drawing – Section",                                  label: "Drawing – Section",                                  unit: "yes/no" },
-      { key: "Drawing – PE at Typical / Corner / Terrace / Starter", label: "Drawing – PE at Typical / Corner / Terrace / Starter", unit: "yes/no" },
-      { key: "Drawing – PE at Refuge Area",                        label: "Drawing – PE at Refuge Area",                        unit: "yes/no" },
-      { key: "Drawing – Railing Interface",                        label: "Drawing – Railing Interface",                        unit: "yes/no" },
-      { key: "Drawing – PE for Non-Typical Area",                  label: "Drawing – PE for Non-Typical Area",                  unit: "yes/no" },
-      { key: "Fin Details (Width, Depth, Shape)",                  label: "Fin Details (Width, Depth, Shape)",                  unit: "mm" },
-      { key: "Location of Openable in Elevation & Plan",           label: "Location of Openable in Elevation & Plan",           unit: "yes/no" },
-      { key: "Coping Details",                                     label: "Coping Details",                                     unit: "yes/no" },
-      { key: "Inner / Outer Corner Details (Split / Single)",      label: "Inner / Outer Corner Details (Split / Single)",      unit: "split / single" },
-      { key: "Variable Angle",                                     label: "Variable Angle",                                     unit: "degrees" },
-      { key: "Variable Gasket",                                    label: "Variable Gasket",                                    unit: "yes/no" },
-      { key: "Variable Angle Mullion (Semi-Unitised)",             label: "Variable Angle Mullion (Semi-Unitised)",             unit: "yes/no" },
-      { key: "Top & Bottom Flashing with Insulation",              label: "Top & Bottom Flashing with Insulation",              unit: "yes/no" },
-      { key: "Semi-Unitised Glass Support and Cleats",             label: "Semi-Unitised Glass Support and Cleats",             unit: "yes/no" },
-      { key: "Gasket for Transom and Mullion",                     label: "Gasket for Transom and Mullion",                     unit: "material" },
-      { key: "Intermediate Transom Edge Guard (No Visible Screws)", label: "Intermediate Transom Edge Guard (No Visible Screws)", unit: "yes/no" },
-      { key: "ACP Band Interface Details",                         label: "ACP Band Interface Details",                         unit: "yes/no" },
-      { key: "Horizontal Fin Details",                             label: "Horizontal Fin Details",                             unit: "yes/no" },
-      { key: "Fin Lightning Provision",                            label: "Fin Lightning Provision",                            unit: "yes/no" },
-      { key: "Canopy Details",                                     label: "Canopy Details",                                     unit: "yes/no" },
-      { key: "Catwalk Details",                                    label: "Catwalk Details",                                    unit: "yes/no" },
-      { key: "Louvers Details (Shape & Location)",                 label: "Louvers Details (Shape & Location)",                 unit: "yes/no" },
-      { key: "Mullion Sleeve Length (Semi-Unitised)",              label: "Mullion Sleeve Length (Semi-Unitised)",              unit: "mm" },
-      { key: "Wind Load Brackets & Dead Load",                     label: "Wind Load Brackets & Dead Load",                     unit: "yes/no" },
-      { key: "Flashings",                                          label: "Flashings",                                          unit: "yes/no" },
-      { key: "Waterproofing Membrane",                             label: "Waterproofing Membrane",                             unit: "yes/no" },
-      { key: "Subframes",                                          label: "Subframes",                                          unit: "yes/no" },
-      { key: "Perimeter Tubes (Curtain Wall / Toggle / UCW)",      label: "Perimeter Tubes (Curtain Wall / Toggle / UCW)",      unit: "yes/no" },
-      { key: "Fin Bracket & Bolts",                                label: "Fin Bracket & Bolts",                                unit: "yes/no" },
-      { key: "Mullion Structural Design Principle",                label: "Mullion Structural Design Principle",                unit: "type" },
-      { key: "Slider Types",                                       label: "Slider Types",                                       unit: "type" },
-      { key: "Openable Types",                                     label: "Openable Types",                                     unit: "type" },
-      { key: "Chajja Details (Width, Depth, Shape)",               label: "Chajja Details (Width, Depth, Shape)",               unit: "mm" },
-      { key: "No. of Floors",                                      label: "No. of Floors",                                      unit: "floors" },
-      { key: "Gutter – Integrated / Third Party",                  label: "Gutter – Integrated / Third Party",                  unit: "type" },
-    ],
-  },
-  {
-    id: "boq_hardware",
-    label: "BOQ & Hardware",
-    params: [
-      { key: "Glazing / Façade Area",                              label: "Glazing / Façade Area",                              unit: "m²" },
-      { key: "Handle for Openable",                                label: "Handle for Openable",                                unit: "type" },
-      { key: "Handle Requirements (Lockable / Non-Lockable / Custodian)", label: "Handle Requirements (Lockable / Non-Lockable / Custodian)", unit: "type" },
-      { key: "Outside Pull Handle Required",                       label: "Outside Pull Handle Required",                       unit: "yes/no" },
-      { key: "Hardware Specification",                             label: "Hardware Specification",                             unit: "brand / grade" },
-      { key: "Door Threshold Type",                                label: "Door Threshold Type",                                unit: "type" },
-      { key: "Concealed Door Closure & Hinge",                     label: "Concealed Door Closure & Hinge",                     unit: "yes/no" },
-      { key: "Distance – Glass Edge to Glass Support",             label: "Distance – Glass Edge to Glass Support",             unit: "mm" },
-      { key: "Durability Requirements",                            label: "Durability Requirements",                            unit: "cycles / years" },
-      { key: "Lifting Provision",                                  label: "Lifting Provision",                                  unit: "yes/no" },
-      { key: "Silicon Gasket",                                     label: "Silicon Gasket",                                     unit: "type" },
-      { key: "Coating Specification (AAMA 2603 / 2604 / 2605)",   label: "Coating Specification (AAMA 2603 / 2604 / 2605)",   unit: "AAMA grade" },
-      { key: "Warranty Terms",                                     label: "Warranty Terms",                                     unit: "years" },
-      { key: "Metal Separator",                                    label: "Metal Separator",                                    unit: "yes/no" },
-      { key: "Perimeter Rectangular Tube",                         label: "Perimeter Rectangular Tube",                         unit: "mm × mm" },
-      { key: "Fasteners",                                          label: "Fasteners",                                          unit: "grade / type" },
-      { key: "Screw Hole Caps",                                    label: "Screw Hole Caps",                                    unit: "yes/no" },
-      { key: "Fin End Caps",                                       label: "Fin End Caps",                                       unit: "yes/no" },
-      { key: "Handle for Sliders",                                 label: "Handle for Sliders",                                 unit: "type" },
-      { key: "Lock & Key Required",                                label: "Lock & Key Required",                                unit: "yes/no" },
-      { key: "Standard / Custom Colour",                           label: "Standard / Custom Colour",                           unit: "standard / custom" },
-      { key: "Track Protection",                                   label: "Track Protection",                                   unit: "yes/no" },
-      { key: "Ventilator Type (Exhaust Fan / Louvre)",             label: "Ventilator Type (Exhaust Fan / Louvre)",             unit: "type" },
-      { key: "Door Type (Pivot / Swing)",                          label: "Door Type (Pivot / Swing)",                          unit: "type" },
-      { key: "Georgian Bar Requirements",                          label: "Georgian Bar Requirements",                          unit: "yes/no" },
-      { key: "Integration with Ventilators (Renson)",             label: "Integration with Ventilators (Renson)",             unit: "yes/no" },
-      { key: "Interlock End Caps",                                 label: "Interlock End Caps",                                 unit: "yes/no" },
-      { key: "Door Stopper",                                       label: "Door Stopper",                                       unit: "yes/no" },
-      { key: "Automation",                                         label: "Automation",                                         unit: "yes/no" },
-    ],
-  },
-  {
-    id: "commercial",
-    label: "Commercial Terms & Conditions",
-    params: [
-      { key: "DLP (Defect Liability Period)",                      label: "DLP (Defect Liability Period)",                      unit: "months" },
-      { key: "BG (Bank Guarantee)",                                label: "BG (Bank Guarantee)",                                unit: "%" },
-      { key: "Retention",                                          label: "Retention",                                          unit: "%" },
-      { key: "Quotation Validity",                                 label: "Quotation Validity",                                 unit: "days / months" },
-      { key: "NALCO Rate / Clause",                                label: "NALCO Rate / Clause",                                unit: "INR/kg" },
-      { key: "Rate Validity",                                      label: "Rate Validity",                                      unit: "months" },
-      { key: "Supplies Validity",                                  label: "Supplies Validity",                                  unit: "months" },
-      { key: "Scope of Supply (CIF / Ex Works)",                   label: "Scope of Supply (CIF / Ex Works)",                   unit: "Incoterm" },
-      { key: "Wastages",                                           label: "Wastages",                                           unit: "%" },
-      { key: "Project Completion Timelines",                       label: "Project Completion Timelines",                       unit: "months" },
-      { key: "Project Management Requirements",                    label: "Project Management Requirements",                    unit: "text" },
-      { key: "Shop Drawings",                                      label: "Shop Drawings",                                      unit: "text" },
-      { key: "Tolerances",                                         label: "Tolerances",                                         unit: "±mm" },
-      { key: "PMU Cost",                                           label: "PMU Cost",                                           unit: "INR / lump sum" },
-      { key: "Mode of Measurement (BOQ / Actual Size)",            label: "Mode of Measurement (BOQ / Actual Size)",            unit: "type" },
-      { key: "Payment Terms",                                      label: "Payment Terms",                                      unit: "% / days" },
-      { key: "MTC (Material Test Certificate)",                    label: "MTC (Material Test Certificate)",                    unit: "yes/no" },
-      { key: "Protection Tape",                                    label: "Protection Tape",                                    unit: "yes/no" },
-      { key: "No. of Lots Required",                               label: "No. of Lots Required",                               unit: "nos" },
-      { key: "Stationed Service Engineer",                         label: "Stationed Service Engineer",                         unit: "yes/no" },
-      { key: "Stationed Project Manager",                          label: "Stationed Project Manager",                          unit: "yes/no" },
-      { key: "Sample Board",                                       label: "Sample Board",                                       unit: "yes/no" },
-    ],
-  },
-];
-
-// Flat list derived from groups (used for export, merge, etc.)
-const REQUIRED_PARAMS = PARAM_GROUPS.flatMap(g =>
-  g.params.map(p => ({ ...p, group: g.id, groupLabel: g.label }))
-);
+import { getParamGroups, getRequiredParams } from "@/lib/paramConfig";
 
 function confidenceColor(c) {
   return c >= 85 ? C.ok : c >= 70 ? C.warn : C.err;
@@ -199,7 +26,8 @@ function fileIcon(fileType) {
   return "📄";
 }
 
-function mergeWithRequired(extracted) {
+function mergeWithRequired(extracted, projectType = "commercial") {
+  const REQUIRED_PARAMS = getRequiredParams(projectType);
   const map = {};
   (extracted || []).forEach(item => {
     const name = item.parameter_name || item.parameter || item.name || "";
@@ -336,6 +164,7 @@ function SourceBadges({ sources, isExpanded }) {
 export default function ResultsPanel({ token, projectId, projectName, onClose, isMobile }) {
   const [params, setParams] = useState([]);
   const [documents, setDocuments] = useState([]);
+  const [projectType, setProjectType] = useState("commercial");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [expandedIdx, setExpandedIdx] = useState(null);
@@ -361,6 +190,9 @@ export default function ResultsPanel({ token, projectId, projectName, onClose, i
   const [filterText, setFilterText] = useState("");
   const [activeTab, setActiveTab] = useState("all"); // "all" | "found" | "missing"
   const [collapsedGroups, setCollapsedGroups] = useState(new Set());
+
+  // Derive PARAM_GROUPS based on project type
+  const PARAM_GROUPS = useMemo(() => getParamGroups(projectType), [projectType]);
 
   // ── Poll timings endpoint ─────────────────────────────────────────────────
   useEffect(() => {
@@ -402,7 +234,9 @@ export default function ResultsPanel({ token, projectId, projectName, onClose, i
       api.getParameters(token, projectId)
         .then(data => {
           if (cancelled) return;
-          const merged = mergeWithRequired(data.parameters);
+          const pType = data.project_type || "commercial";
+          setProjectType(pType);
+          const merged = mergeWithRequired(data.parameters, pType);
           setParams(merged);
           setDocuments(data.documents || []);
           setPipelineStep(data.pipeline_step || null);
