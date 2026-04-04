@@ -658,12 +658,15 @@ export default function TenderIQ() {
                       <RichText text={m.text || m.content} />
                     </div>
                     {m.sources?.length > 0 && (
-                      <div style={{ marginTop: 10, padding: "8px 10px", background: "rgba(0,0,0,0.15)", borderRadius: 6, fontSize: 11, color: C.text3, borderTop: `1px solid rgba(255,255,255,0.06)` }}>
-                        <div style={{ fontWeight: 600, marginBottom: 5, color: C.text2, fontSize: 10, textTransform: "uppercase", letterSpacing: "0.05em" }}>Sources</div>
+                      <div style={{ marginTop: 12, padding: "10px 12px", background: "rgba(0,196,140,0.06)", borderRadius: 8, border: `1px solid rgba(0,196,140,0.15)` }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={C.green} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                          <span style={{ fontWeight: 700, fontSize: 11, color: C.green, textTransform: "uppercase", letterSpacing: "0.06em" }}>Source Documents</span>
+                        </div>
                         {m.sources.map((s, j) => (
-                          <div key={j} style={{ display: "flex", alignItems: "flex-start", gap: 5, marginBottom: 3 }}>
-                            <span style={{ color: C.green, fontWeight: 700, flexShrink: 0 }}>·</span>
-                            <span>{s}</span>
+                          <div key={j} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 8px", marginBottom: 4, background: "rgba(255,255,255,0.04)", borderRadius: 5, fontSize: 12, color: C.text1 }}>
+                            <span style={{ color: C.green, fontWeight: 700, fontSize: 13, flexShrink: 0 }}>{j + 1}.</span>
+                            <span style={{ fontWeight: 500 }}>{s}</span>
                           </div>
                         ))}
                       </div>
