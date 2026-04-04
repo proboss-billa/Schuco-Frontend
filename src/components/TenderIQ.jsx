@@ -578,7 +578,7 @@ export default function TenderIQ() {
                   onMouseLeave={e => e.currentTarget.style.color = C.text3}>
                   <UploadIcon />
                 </button>
-                <input ref={fileRef} type="file" multiple accept=".pdf,.xlsx,.xls,.docx,.doc,.dxf,.dwg" style={{ display: "none" }}
+                <input ref={fileRef} type="file" multiple accept=".pdf,.xlsx,.xls,.csv,.ods,.docx,.doc,.dxf,.dwg" style={{ display: "none" }}
                   onChange={e => { setFiles(Array.from(e.target.files)); e.target.value = ""; }} />
                 <textarea value={input} onChange={e => setInput(e.target.value)}
                   onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
