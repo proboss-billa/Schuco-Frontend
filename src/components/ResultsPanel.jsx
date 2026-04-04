@@ -191,8 +191,9 @@ export default function ResultsPanel({ token, projectId, projectName, onClose, i
   const [activeTab, setActiveTab] = useState("all"); // "all" | "found" | "missing"
   const [collapsedGroups, setCollapsedGroups] = useState(new Set());
 
-  // Derive PARAM_GROUPS based on project type
+  // Derive PARAM_GROUPS and REQUIRED_PARAMS based on project type
   const PARAM_GROUPS = useMemo(() => getParamGroups(projectType), [projectType]);
+  const REQUIRED_PARAMS = useMemo(() => getRequiredParams(projectType), [projectType]);
 
   // ── Poll timings endpoint ─────────────────────────────────────────────────
   useEffect(() => {
