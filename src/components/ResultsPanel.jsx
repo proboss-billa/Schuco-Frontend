@@ -854,29 +854,50 @@ export default function ResultsPanel({ token, projectId, projectName, onClose, i
           <button
             onClick={() => setShowDocs(v => !v)}
             style={{ width: "100%", padding: "8px 18px", background: "none", border: "none", display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", color: C.text2 }}>
-            <span style={{ fontSize: 11, fontWeight: 600, color: C.text3, textTransform: "uppercase", letterSpacing: "0.08em" }}>
+            <span style={{ fontSize: 11, fontWeight: 600, color: C.text3, textTransform: "uppercase", letterSpacing: "0.08em", display: "flex", alignItems: "center", gap: 8 }}>
               {documents.length} Document{documents.length !== 1 ? "s" : ""}
-              {polling && <span style={{ marginLeft: 6, color: C.warn }}>• scanning</span>}
+              {polling && <span style={{ color: C.warn }}>• scanning</span>}
+              {!polling && !reExtracting && (
+                <span
+                  onClick={(e) => { e.stopPropagation(); handleReExtract(); }}
+                  style={{ fontSize: 10, padding: "2px 8px", background: "transparent", border: `1px solid ${C.greenBorder}`, borderRadius: 5, color: C.green, cursor: "pointer", fontWeight: 500, letterSpacing: 0, textTransform: "none", transition: "all 0.15s" }}
+                  onMouseEnter={e => { e.currentTarget.style.background = C.greenSubtle; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}>
+                  Re-extract
+                </span>
+              )}
+              {reExtracting && (
+                <span style={{ fontSize: 10, color: C.green, letterSpacing: 0, textTransform: "none", display: "flex", alignItems: "center", gap: 4 }}>
+                  <span style={{ width: 6, height: 6, borderRadius: "50%", background: C.green, animation: "pulse 1s ease infinite", display: "inline-block" }} />
+                  Re-extracting...
+                </span>
+              )}
             </span>
             <span style={{ fontSize: 10, color: C.text3 }}>{showDocs ? "▲" : "▼"}</span>
           </button>
           {showDocs && (
-            <div style={{ padding: "0 14px 10px" }}>
+            <div style={{ padding: "0 14px 10px", maxHeight: 220, overflowY: "auto", scrollbarWidth: "thin", scrollbarColor: `${C.text3}40 transparent` }}>
               {documents.map((doc, i) => {
                 const st = doc.processing_status;
-                const isActive = st === "processing" || st === "indexed";
-                const isOk     = st === "completed" || st === "pending";
+                const statusColorMap = {
+                  "pending":    "#4A9EFF",
+                  "processing": "#FFB340",
+                  "indexed":    "#FF8C42",
+                  "completed":  "#00C48C",
+                  "failed":     "#FF5A5A",
+                };
+                const statusColor = statusColorMap[st] || C.text3;
+                const isProcessing = st === "processing";
                 const isFailed = st === "failed";
-                const statusColor = isFailed ? C.err : isOk ? C.ok : isActive ? C.warn : C.text3;
                 const statusLabel = {
                   "pending":    "pending",
-                  "processing": "parsing…",
+                  "processing": "parsing...",
                   "indexed":    "indexed",
                   "completed":  "done",
                   "failed":     "failed",
                 }[st] || st || "ready";
                 return (
-                  <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", background: C.bg2, borderRadius: 7, marginBottom: 4, border: `1px solid ${isActive ? C.warn + "40" : C.border}` }}>
+                  <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", background: C.bg2, borderRadius: 7, marginBottom: 4, border: `1px solid ${statusColor}25` }}>
                     <span style={{ fontSize: 14, flexShrink: 0 }}>{fileIcon(doc.file_type)}</span>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: 11, fontWeight: 600, color: C.text1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={doc.filename}>
@@ -890,7 +911,7 @@ export default function ResultsPanel({ token, projectId, projectName, onClose, i
                       </div>
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: 3, flexShrink: 0 }}>
-                      <div style={{ width: 6, height: 6, borderRadius: "50%", background: statusColor, animation: isActive ? "pulse 1.2s ease infinite" : "none" }} />
+                      <div style={{ width: 6, height: 6, borderRadius: "50%", background: statusColor, animation: isProcessing ? "pulse 1.2s ease infinite" : "none" }} />
                       <span style={{ fontSize: 10, color: statusColor, fontWeight: 600 }}>
                         {statusLabel}
                       </span>
