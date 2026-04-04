@@ -1,4 +1,5 @@
 import { DM_Sans, JetBrains_Mono } from "next/font/google";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import "./globals.css";
 
 const dmSans = DM_Sans({
@@ -23,6 +24,7 @@ export default function RootLayout({ children }) {
     <html lang="en" className={`${dmSans.variable} ${jetbrainsMono.variable}`}>
       <body style={{ fontFamily: "var(--font-dm-sans), system-ui, sans-serif" }}>
         {children}
+        <SpeedInsights />
       </body>
     </html>
   );
