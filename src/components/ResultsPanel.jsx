@@ -74,15 +74,74 @@ export default function ResultsPanel({ token, projectId, projectName, onClose, i
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
+  const [polling, setPolling] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [reExtracting, setReExtracting] = useState(false);
+
   useEffect(() => {
     if (!projectId) return;
     setLoading(true);
     setError("");
-    api.getParameters(token, projectId)
-      .then(data => setParams(mergeWithRequired(data.parameters)))
-      .catch(e => setError(e.message))
-      .finally(() => setLoading(false));
-  }, [token, projectId]);
+    setPolling(false);
+    setParams([]);  // clear stale rows from previous project immediately
+
+    let cancelled = false;
+    let timer = null;
+    let attempts = 0;
+    const MAX_ATTEMPTS = 80; // 80 × 3 s = 4 min max wait
+    const POLL_INTERVAL = 3000; // 3 s — results appear within 3 s of extraction finishing
+
+    const fetchParams = () => {
+      api.getParameters(token, projectId)
+        .then(data => {
+          if (cancelled) return;
+          const merged = mergeWithRequired(data.parameters);
+          setParams(merged);
+          setLoading(false);
+          // Keep polling while the backend is still processing
+          const stillProcessing = data.processing_status === "processing" || data.processing_status === "uploaded";
+          if (stillProcessing && attempts < MAX_ATTEMPTS) {
+            attempts++;
+            setPolling(true);
+            timer = setTimeout(fetchParams, POLL_INTERVAL);
+          } else {
+            setPolling(false);
+            setReExtracting(false);
+          }
+        })
+        .catch(() => {
+          if (cancelled) return;
+          // Transient error (network blip, Railway restart) — retry silently
+          // instead of killing the poll loop. Only give up after MAX_ATTEMPTS.
+          if (attempts < MAX_ATTEMPTS) {
+            attempts++;
+            timer = setTimeout(fetchParams, POLL_INTERVAL);
+          } else {
+            setError("Could not load parameters. Please refresh.");
+            setLoading(false);
+            setPolling(false);
+            setReExtracting(false);
+          }
+        });
+    };
+
+    fetchParams();
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [token, projectId, refreshKey]);
+
+  const handleReExtract = async () => {
+    if (reExtracting) return;
+    setReExtracting(true);
+    setError("");
+    try {
+      await api.reExtract(token, projectId);
+      // Increment refreshKey → triggers useEffect which polls while status = "processing"
+      setRefreshKey(k => k + 1);
+    } catch (e) {
+      setError(`Re-extraction failed: ${e.message}`);
+      setReExtracting(false);
+    }
+  };
 
   const found = params.filter(p => p.available);
   const missing = params.filter(p => !p.available);
@@ -246,22 +305,44 @@ export default function ResultsPanel({ token, projectId, projectName, onClose, i
       </div>
 
       {/* Summary bar */}
-      {!loading && params.length > 0 && (
-        <div style={{ padding: "10px 18px", borderBottom: `1px solid ${C.border}`, display: "flex", gap: 16, flexShrink: 0 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12 }}>
-            <div style={{ width: 8, height: 8, borderRadius: "50%", background: C.ok }} />
-            <span style={{ color: C.text2 }}><strong style={{ color: C.text1 }}>{found.length}</strong> Found</span>
+      {polling && (
+        <div style={{ padding: "10px 18px", borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+          <div style={{ display: "flex", gap: 4 }}>
+            {[0, 1, 2].map(i => (
+              <div key={i} style={{ width: 5, height: 5, borderRadius: "50%", background: C.green, animation: `pulse 1.2s ease ${i * 0.2}s infinite` }} />
+            ))}
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12 }}>
-            <div style={{ width: 8, height: 8, borderRadius: "50%", background: C.text3 }} />
-            <span style={{ color: C.text2 }}><strong style={{ color: C.text1 }}>{missing.length}</strong> Not Available</span>
+          <span style={{ fontSize: 11, color: C.text3 }}>Extracting parameters…</span>
+        </div>
+      )}
+      {!loading && !polling && params.length > 0 && (
+        <div style={{ padding: "10px 18px", borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexShrink: 0 }}>
+          <div style={{ display: "flex", gap: 16 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12 }}>
+              <div style={{ width: 8, height: 8, borderRadius: "50%", background: C.ok }} />
+              <span style={{ color: C.text2 }}><strong style={{ color: C.text1 }}>{found.length}</strong> Found</span>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12 }}>
+              <div style={{ width: 8, height: 8, borderRadius: "50%", background: C.text3 }} />
+              <span style={{ color: C.text2 }}><strong style={{ color: C.text1 }}>{missing.length}</strong> Not Available</span>
+            </div>
           </div>
+          {found.length === 0 && (
+            <button
+              onClick={handleReExtract}
+              disabled={reExtracting}
+              style={{ padding: "4px 10px", background: "transparent", border: `1px solid ${C.greenBorder}`, borderRadius: 6, color: C.green, cursor: reExtracting ? "default" : "pointer", fontSize: 11, fontFamily: F.sans, fontWeight: 500, opacity: reExtracting ? 0.6 : 1, transition: "all 0.15s" }}
+              onMouseEnter={e => { if (!reExtracting) e.currentTarget.style.background = C.greenSubtle; }}
+              onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}>
+              {reExtracting ? "Re-extracting…" : "Re-extract"}
+            </button>
+          )}
         </div>
       )}
 
       {/* Content */}
       <div style={{ flex: 1, overflowY: "auto", padding: "12px 14px" }}>
-        {loading && (
+        {(loading || polling) && (
           <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: 120 }}>
             <div style={{ display: "flex", gap: 6 }}>
               {[0, 1, 2].map(i => (
@@ -276,7 +357,7 @@ export default function ResultsPanel({ token, projectId, projectName, onClose, i
           </div>
         )}
 
-        {!loading && params.map((r, i) => {
+        {!loading && !polling && params.map((r, i) => {
           const isExpanded = expandedIdx === i;
           return (
             <div key={i}
