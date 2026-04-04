@@ -106,6 +106,18 @@ export const api = {
     }
   },
 
+  async getChatHistory(token, projectId) {
+    try {
+      const res = await fetch(`${BASE}/projects/${projectId}/chat-history`, {
+        headers: authHeaders(token),
+      });
+      if (!res.ok) return { messages: [] };
+      return res.json();
+    } catch {
+      return { messages: [] };
+    }
+  },
+
   async listProjects(token) {
     try {
       const res = await fetch(`${BASE}/projects`, {

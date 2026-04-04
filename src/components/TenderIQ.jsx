@@ -40,11 +40,27 @@ function TypingIndicator({ stage }) {
   );
 }
 
-// ── Markdown-lite bold renderer ──────────────────────
-function BoldText({ text }) {
-  return text.split("**").map((part, j) =>
-    j % 2 === 1 ? <strong key={j}>{part}</strong> : <span key={j}>{part}</span>
-  );
+// ── Markdown-lite renderer (bold, bullets, line breaks) ──
+function RichText({ text }) {
+  if (!text) return null;
+  const lines = text.split("\n");
+  return lines.map((line, i) => {
+    const trimmed = line.trim();
+    // Bullet points: - or • or *
+    const isBullet = /^[-•*]\s+/.test(trimmed);
+    const content = isBullet ? trimmed.replace(/^[-•*]\s+/, "") : trimmed;
+    // Bold rendering
+    const parts = content.split("**").map((part, j) =>
+      j % 2 === 1 ? <strong key={j}>{part}</strong> : <span key={j}>{part}</span>
+    );
+    if (isBullet) {
+      return <div key={i} style={{ display: "flex", gap: 6, marginLeft: 4, marginTop: 2, marginBottom: 2 }}><span style={{ flexShrink: 0, opacity: 0.5 }}>•</span><span>{parts}</span></div>;
+    }
+    if (trimmed === "") {
+      return <div key={i} style={{ height: 8 }} />;
+    }
+    return <div key={i}>{parts}</div>;
+  });
 }
 
 // ── Main App ─────────────────────────────────────────
@@ -263,16 +279,60 @@ export default function TenderIQ() {
     });
   };
 
-  const openChat = (chat) => {
+  // Persist chat messages to localStorage whenever they change
+  useEffect(() => {
+    if (currentProjectId && msgs.length > 0) {
+      try {
+        localStorage.setItem(`tiq_chat_${currentProjectId}`, JSON.stringify(msgs));
+      } catch {}
+    }
+  }, [msgs, currentProjectId]);
+
+  const openChat = async (chat) => {
     setCurrentProjectId(chat.id);
     setCurrentProjectName(chat.title);
     setCurrentProjectType(chat.type || "commercial");
-    setMsgs([
-      { role: "user", type: "file", content: `${chat.title}.pdf`, text: "Load this analysis" },
-      { role: "assistant", type: "analysis", content: `Loaded **${chat.title}**. The extracted parameters are ready in the side panel. What would you like to know?` },
-    ]);
     setShowResults(true);
     if (isMob) setSideOpen(false);
+
+    // 1) Try localStorage first (instant)
+    try {
+      const cached = localStorage.getItem(`tiq_chat_${chat.id}`);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setMsgs(parsed);
+          // Still fetch from server in background to sync
+          api.getChatHistory(token, chat.id).then(data => {
+            if (data.messages && data.messages.length > 0) {
+              const welcomeMsg = { role: "assistant", type: "analysis", content: `Loaded **${chat.title}**. The extracted parameters are ready in the side panel.\n\nWhat would you like to know?` };
+              setMsgs([welcomeMsg, ...data.messages]);
+            }
+          }).catch(() => {});
+          return;
+        }
+      }
+    } catch {}
+
+    // 2) Fetch from server
+    const loadingMsgs = [
+      { role: "assistant", type: "analysis", content: `Loading **${chat.title}**...` },
+    ];
+    setMsgs(loadingMsgs);
+
+    try {
+      const data = await api.getChatHistory(token, chat.id);
+      const welcomeMsg = { role: "assistant", type: "analysis", content: `Loaded **${chat.title}**. The extracted parameters are ready in the side panel.\n\nWhat would you like to know?` };
+      if (data.messages && data.messages.length > 0) {
+        setMsgs([welcomeMsg, ...data.messages]);
+      } else {
+        setMsgs([welcomeMsg]);
+      }
+    } catch {
+      setMsgs([
+        { role: "assistant", type: "analysis", content: `Loaded **${chat.title}**. The extracted parameters are ready in the side panel.\n\nWhat would you like to know?` },
+      ]);
+    }
   };
 
   const handleCtx = (e, chat) => { e.preventDefault(); e.stopPropagation(); setCtxMenu({ x: e.clientX, y: e.clientY, chat }); };
@@ -299,7 +359,9 @@ export default function TenderIQ() {
         setChats(projects.map(p => ({
           id: p.project_id || p.id,
           title: p.project_name || p.name || "Untitled",
-          date: p.created_at ? new Date(p.created_at).toLocaleDateString() : "",
+          type: p.project_type || "commercial",
+          date: p.created_at || "",
+          updated: p.updated_at || p.created_at || "",
         })));
       }
     });
@@ -593,7 +655,7 @@ export default function TenderIQ() {
                       </div>
                     )}
                     <div style={{ fontSize: 14, lineHeight: 1.65, color: m.role === "user" ? "#111" : C.text1, whiteSpace: "pre-wrap", fontWeight: m.role === "user" ? 500 : 400 }}>
-                      <BoldText text={m.text || m.content} />
+                      <RichText text={m.text || m.content} />
                     </div>
                     {m.sources?.length > 0 && (
                       <div style={{ marginTop: 10, padding: "8px 10px", background: "rgba(0,0,0,0.15)", borderRadius: 6, fontSize: 11, color: C.text3, borderTop: `1px solid rgba(255,255,255,0.06)` }}>
