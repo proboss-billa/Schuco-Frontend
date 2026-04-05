@@ -844,24 +844,24 @@ export default function TenderIQ() {
       {/* ── Project Creation Dialog ── */}
       {showCreateDialog && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(10,14,20,0.85)", zIndex: 600, display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(4px)", animation: "fadeUp 0.2s ease" }}>
-          <div style={{ background: C.bg1, borderRadius: 20, padding: "32px 36px", border: `1px solid ${C.border}`, maxWidth: 420, width: "90%" }}>
-            <div style={{ fontSize: 18, fontWeight: 700, color: C.text1, marginBottom: 4 }}>New Project</div>
-            <div style={{ fontSize: 12, color: C.text3, marginBottom: 20 }}>{pendingFiles.length} file{pendingFiles.length !== 1 ? "s" : ""} selected</div>
+          <div style={{ background: C.bg1, borderRadius: 16, padding: "20px 24px", border: `1px solid ${C.border}`, maxWidth: 420, width: "90%", maxHeight: "90vh", overflowY: "auto", display: "flex", flexDirection: "column" }}>
+            <div style={{ fontSize: 17, fontWeight: 700, color: C.text1, marginBottom: 2 }}>New Project</div>
+            <div style={{ fontSize: 11, color: C.text3, marginBottom: 14 }}>{pendingFiles.length} file{pendingFiles.length !== 1 ? "s" : ""} selected</div>
 
             {/* Project Name */}
-            <label style={{ fontSize: 11, fontWeight: 600, color: C.text2, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6, display: "block" }}>Project Name</label>
+            <label style={{ fontSize: 10, fontWeight: 600, color: C.text2, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 5, display: "block" }}>Project Name</label>
             <input
               value={createDialogName}
               onChange={e => setCreateDialogName(e.target.value)}
               onKeyDown={e => { if (e.key === "Enter") handleCreateProject(); }}
               autoFocus
-              style={{ width: "100%", padding: "10px 14px", background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, color: C.text1, fontSize: 14, fontFamily: F.sans, outline: "none", marginBottom: 18, boxSizing: "border-box" }}
+              style={{ width: "100%", padding: "8px 12px", background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, color: C.text1, fontSize: 13, fontFamily: F.sans, outline: "none", marginBottom: 14, boxSizing: "border-box" }}
               placeholder="Enter project name..."
             />
 
             {/* Project Type */}
-            <label style={{ fontSize: 11, fontWeight: 600, color: C.text2, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8, display: "block" }}>Project Type</label>
-            <div style={{ display: "flex", gap: 10, marginBottom: 24 }}>
+            <label style={{ fontSize: 10, fontWeight: 600, color: C.text2, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6, display: "block" }}>Project Type</label>
+            <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
               {[
                 { value: "commercial", label: "Commercial", icon: "🏢", desc: "Office, Mall, IT Park" },
                 { value: "residential", label: "Residential", icon: "🏠", desc: "Villa, Apartment, Tower" },
@@ -869,13 +869,13 @@ export default function TenderIQ() {
                 <button key={opt.value}
                   onClick={() => setCreateDialogType(opt.value)}
                   style={{
-                    flex: 1, padding: "14px 12px", background: createDialogType === opt.value ? (opt.value === "commercial" ? "rgba(74,158,255,0.1)" : "rgba(0,196,140,0.1)") : C.bg,
+                    flex: 1, padding: "10px 10px", background: createDialogType === opt.value ? (opt.value === "commercial" ? "rgba(74,158,255,0.1)" : "rgba(0,196,140,0.1)") : C.bg,
                     border: `2px solid ${createDialogType === opt.value ? (opt.value === "commercial" ? "#4A9EFF" : "#00C48C") : C.border}`,
                     borderRadius: 10, cursor: "pointer", textAlign: "center", transition: "all 0.15s", fontFamily: F.sans,
                   }}>
-                  <div style={{ fontSize: 24, marginBottom: 4 }}>{opt.icon}</div>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: createDialogType === opt.value ? C.text1 : C.text2 }}>{opt.label}</div>
-                  <div style={{ fontSize: 10, color: C.text3, marginTop: 2 }}>{opt.desc}</div>
+                  <div style={{ fontSize: 20, marginBottom: 2 }}>{opt.icon}</div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: createDialogType === opt.value ? C.text1 : C.text2 }}>{opt.label}</div>
+                  <div style={{ fontSize: 9, color: C.text3, marginTop: 1 }}>{opt.desc}</div>
                 </button>
               ))}
             </div>
@@ -883,19 +883,19 @@ export default function TenderIQ() {
             {/* AI Model */}
             {availableModels.length > 0 && (
               <>
-                <label style={{ fontSize: 11, fontWeight: 600, color: C.text2, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8, display: "block" }}>AI Model</label>
-                <div style={{ display: "flex", gap: 8, marginBottom: 24, flexWrap: "wrap" }}>
+                <label style={{ fontSize: 10, fontWeight: 600, color: C.text2, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6, display: "block" }}>AI Model</label>
+                <div style={{ display: "flex", gap: 6, marginBottom: 14, flexWrap: "wrap" }}>
                   {availableModels.map(m => (
                     <button key={m.key}
                       onClick={() => setCreateDialogModel(m.key)}
                       style={{
-                        flex: "1 1 auto", minWidth: 90, padding: "10px 10px", textAlign: "center",
+                        flex: "1 1 auto", minWidth: 88, padding: "7px 8px", textAlign: "center",
                         background: createDialogModel === m.key ? "rgba(139,197,63,0.1)" : C.bg,
                         border: `2px solid ${createDialogModel === m.key ? C.green : C.border}`,
-                        borderRadius: 10, cursor: "pointer", transition: "all 0.15s", fontFamily: F.sans,
+                        borderRadius: 9, cursor: "pointer", transition: "all 0.15s", fontFamily: F.sans,
                       }}>
-                      <div style={{ fontSize: 12, fontWeight: 700, color: createDialogModel === m.key ? C.text1 : C.text2 }}>{m.display_name}</div>
-                      <div style={{ fontSize: 9, color: C.text3, marginTop: 2, textTransform: "capitalize" }}>{m.provider === "google" ? "Google" : "Anthropic"}</div>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: createDialogModel === m.key ? C.text1 : C.text2 }}>{m.display_name}</div>
+                      <div style={{ fontSize: 9, color: C.text3, marginTop: 1, textTransform: "capitalize" }}>{m.provider === "google" ? "Google" : "Anthropic"}</div>
                     </button>
                   ))}
                 </div>
@@ -903,8 +903,8 @@ export default function TenderIQ() {
             )}
 
             {/* OCR Engine (for scanned pages & drawings) */}
-            <label style={{ fontSize: 11, fontWeight: 600, color: C.text2, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8, display: "block" }}>OCR Engine</label>
-            <div style={{ display: "flex", gap: 8, marginBottom: 24, flexWrap: "wrap" }}>
+            <label style={{ fontSize: 10, fontWeight: 600, color: C.text2, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6, display: "block" }}>OCR Engine</label>
+            <div style={{ display: "flex", gap: 6, marginBottom: 14, flexWrap: "wrap" }}>
               {[
                 { value: "auto", label: "Auto", desc: "Fast + accurate" },
                 { value: "mistral", label: "Mistral", desc: "Fastest" },
@@ -913,20 +913,20 @@ export default function TenderIQ() {
                 <button key={opt.value}
                   onClick={() => setCreateDialogOcr(opt.value)}
                   style={{
-                    flex: "1 1 auto", minWidth: 90, padding: "10px 10px", textAlign: "center",
+                    flex: "1 1 auto", minWidth: 88, padding: "7px 8px", textAlign: "center",
                     background: createDialogOcr === opt.value ? "rgba(139,197,63,0.1)" : C.bg,
                     border: `2px solid ${createDialogOcr === opt.value ? C.green : C.border}`,
-                    borderRadius: 10, cursor: "pointer", transition: "all 0.15s", fontFamily: F.sans,
+                    borderRadius: 9, cursor: "pointer", transition: "all 0.15s", fontFamily: F.sans,
                   }}>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: createDialogOcr === opt.value ? C.text1 : C.text2 }}>{opt.label}</div>
-                  <div style={{ fontSize: 9, color: C.text3, marginTop: 2 }}>{opt.desc}</div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: createDialogOcr === opt.value ? C.text1 : C.text2 }}>{opt.label}</div>
+                  <div style={{ fontSize: 9, color: C.text3, marginTop: 1 }}>{opt.desc}</div>
                 </button>
               ))}
             </div>
 
             {/* Streaming extraction toggle — shows parameters as each doc indexes */}
-            <label style={{ fontSize: 11, fontWeight: 600, color: C.text2, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8, display: "block" }}>Extraction mode</label>
-            <div style={{ display: "flex", gap: 8, marginBottom: 24, flexWrap: "wrap" }}>
+            <label style={{ fontSize: 10, fontWeight: 600, color: C.text2, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6, display: "block" }}>Extraction mode</label>
+            <div style={{ display: "flex", gap: 6, marginBottom: 16, flexWrap: "wrap" }}>
               {[
                 { value: true,  label: "Streaming", desc: "See results as docs index" },
                 { value: false, label: "Batch",     desc: "Wait, then extract once" },
@@ -934,19 +934,19 @@ export default function TenderIQ() {
                 <button key={String(opt.value)}
                   onClick={() => setCreateDialogStreaming(opt.value)}
                   style={{
-                    flex: "1 1 auto", minWidth: 120, padding: "10px 10px", textAlign: "center",
+                    flex: "1 1 auto", minWidth: 120, padding: "7px 8px", textAlign: "center",
                     background: createDialogStreaming === opt.value ? "rgba(139,197,63,0.1)" : C.bg,
                     border: `2px solid ${createDialogStreaming === opt.value ? C.green : C.border}`,
-                    borderRadius: 10, cursor: "pointer", transition: "all 0.15s", fontFamily: F.sans,
+                    borderRadius: 9, cursor: "pointer", transition: "all 0.15s", fontFamily: F.sans,
                   }}>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: createDialogStreaming === opt.value ? C.text1 : C.text2 }}>{opt.label}</div>
-                  <div style={{ fontSize: 9, color: C.text3, marginTop: 2 }}>{opt.desc}</div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: createDialogStreaming === opt.value ? C.text1 : C.text2 }}>{opt.label}</div>
+                  <div style={{ fontSize: 9, color: C.text3, marginTop: 1 }}>{opt.desc}</div>
                 </button>
               ))}
             </div>
 
             {/* Actions */}
-            <div style={{ display: "flex", gap: 10 }}>
+            <div style={{ display: "flex", gap: 10, position: "sticky", bottom: 0, background: C.bg1, paddingTop: 4 }}>
               <button onClick={() => { setShowCreateDialog(false); setPendingFiles([]); }}
                 style={{ flex: 1, padding: "10px 0", background: "transparent", border: `1px solid ${C.border}`, borderRadius: 8, color: C.text2, cursor: "pointer", fontSize: 13, fontWeight: 600, fontFamily: F.sans }}>
                 Cancel
