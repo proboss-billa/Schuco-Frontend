@@ -96,7 +96,9 @@ export default function TenderIQ() {
   const [createDialogType, setCreateDialogType] = useState("commercial");
   const [createDialogModel, setCreateDialogModel] = useState("gemini-3-flash");
   const [createDialogOcr, setCreateDialogOcr] = useState("auto");
-  const [createDialogStreaming, setCreateDialogStreaming] = useState(true);
+  // Streaming extraction is parked on backend — pipeline runs in batch mode.
+  // Keep state for API shape but force to false so the flag is a no-op.
+  const [createDialogStreaming, setCreateDialogStreaming] = useState(false);
   const [chatModel, setChatModel] = useState("gemini-3-flash");
   const [pendingFiles, setPendingFiles] = useState([]);
   const [availableModels, setAvailableModels] = useState([]);
@@ -707,30 +709,7 @@ export default function TenderIQ() {
                   ))}
                 </div>
               )}
-              {/* Model dropdown above input */}
-              {availableModels.length > 0 && (
-                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
-                  <span style={{ fontSize: 10, color: C.text3, fontWeight: 500 }}>Model:</span>
-                  <select
-                    value={chatModel}
-                    onChange={e => setChatModel(e.target.value)}
-                    style={{
-                      fontSize: 11, fontFamily: F.sans, fontWeight: 600,
-                      padding: "3px 24px 3px 8px", borderRadius: 6,
-                      background: C.bg1, color: C.green,
-                      border: `1px solid ${C.greenBorder}`,
-                      cursor: "pointer", outline: "none",
-                      appearance: "none", WebkitAppearance: "none",
-                      backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%238bc53f'/%3E%3C/svg%3E")`,
-                      backgroundRepeat: "no-repeat",
-                      backgroundPosition: "right 8px center",
-                    }}>
-                    {availableModels.map(m => (
-                      <option key={m.key} value={m.key}>{m.display_name}</option>
-                    ))}
-                  </select>
-                </div>
-              )}
+              {/* Model dropdown hidden — chatModel is pinned to "gemini-3-flash". */}
               <div style={{ display: "flex", alignItems: "flex-end", gap: 8, background: C.bg1, borderRadius: 12, border: `1px solid ${C.border}`, padding: "5px 8px 5px 5px" }}>
                 <button onClick={() => fileRef.current?.click()}
                   style={{ padding: 8, background: "none", border: "none", color: C.text3, cursor: "pointer", borderRadius: 6, flexShrink: 0 }}
@@ -880,70 +859,10 @@ export default function TenderIQ() {
               ))}
             </div>
 
-            {/* AI Model */}
-            {availableModels.length > 0 && (
-              <>
-                <label style={{ fontSize: 10, fontWeight: 600, color: C.text2, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6, display: "block" }}>AI Model</label>
-                <div style={{ display: "flex", gap: 6, marginBottom: 14, flexWrap: "wrap" }}>
-                  {availableModels.map(m => (
-                    <button key={m.key}
-                      onClick={() => setCreateDialogModel(m.key)}
-                      style={{
-                        flex: "1 1 auto", minWidth: 88, padding: "7px 8px", textAlign: "center",
-                        background: createDialogModel === m.key ? "rgba(139,197,63,0.1)" : C.bg,
-                        border: `2px solid ${createDialogModel === m.key ? C.green : C.border}`,
-                        borderRadius: 9, cursor: "pointer", transition: "all 0.15s", fontFamily: F.sans,
-                      }}>
-                      <div style={{ fontSize: 11, fontWeight: 700, color: createDialogModel === m.key ? C.text1 : C.text2 }}>{m.display_name}</div>
-                      <div style={{ fontSize: 9, color: C.text3, marginTop: 1, textTransform: "capitalize" }}>{m.provider === "google" ? "Google" : "Anthropic"}</div>
-                    </button>
-                  ))}
-                </div>
-              </>
-            )}
+            {/* AI Model, OCR Engine, Extraction mode — hidden from the UI.
+                Defaults are pinned in state (gemini-3-flash / auto / batch);
+                the backend still receives the same fields in create_project. */}
 
-            {/* OCR Engine (for scanned pages & drawings) */}
-            <label style={{ fontSize: 10, fontWeight: 600, color: C.text2, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6, display: "block" }}>OCR Engine</label>
-            <div style={{ display: "flex", gap: 6, marginBottom: 14, flexWrap: "wrap" }}>
-              {[
-                { value: "auto", label: "Auto", desc: "Fast + accurate" },
-                { value: "mistral", label: "Mistral", desc: "Fastest" },
-                { value: "gemini", label: "Gemini", desc: "Best drawings" },
-              ].map(opt => (
-                <button key={opt.value}
-                  onClick={() => setCreateDialogOcr(opt.value)}
-                  style={{
-                    flex: "1 1 auto", minWidth: 88, padding: "7px 8px", textAlign: "center",
-                    background: createDialogOcr === opt.value ? "rgba(139,197,63,0.1)" : C.bg,
-                    border: `2px solid ${createDialogOcr === opt.value ? C.green : C.border}`,
-                    borderRadius: 9, cursor: "pointer", transition: "all 0.15s", fontFamily: F.sans,
-                  }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: createDialogOcr === opt.value ? C.text1 : C.text2 }}>{opt.label}</div>
-                  <div style={{ fontSize: 9, color: C.text3, marginTop: 1 }}>{opt.desc}</div>
-                </button>
-              ))}
-            </div>
-
-            {/* Streaming extraction toggle — shows parameters as each doc indexes */}
-            <label style={{ fontSize: 10, fontWeight: 600, color: C.text2, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6, display: "block" }}>Extraction mode</label>
-            <div style={{ display: "flex", gap: 6, marginBottom: 16, flexWrap: "wrap" }}>
-              {[
-                { value: true,  label: "Streaming", desc: "See results as docs index" },
-                { value: false, label: "Batch",     desc: "Wait, then extract once" },
-              ].map(opt => (
-                <button key={String(opt.value)}
-                  onClick={() => setCreateDialogStreaming(opt.value)}
-                  style={{
-                    flex: "1 1 auto", minWidth: 120, padding: "7px 8px", textAlign: "center",
-                    background: createDialogStreaming === opt.value ? "rgba(139,197,63,0.1)" : C.bg,
-                    border: `2px solid ${createDialogStreaming === opt.value ? C.green : C.border}`,
-                    borderRadius: 9, cursor: "pointer", transition: "all 0.15s", fontFamily: F.sans,
-                  }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: createDialogStreaming === opt.value ? C.text1 : C.text2 }}>{opt.label}</div>
-                  <div style={{ fontSize: 9, color: C.text3, marginTop: 1 }}>{opt.desc}</div>
-                </button>
-              ))}
-            </div>
 
             {/* Actions */}
             <div style={{ display: "flex", gap: 10, position: "sticky", bottom: 0, background: C.bg1, paddingTop: 4 }}>
