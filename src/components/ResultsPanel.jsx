@@ -4,6 +4,7 @@ import { C, F } from "@/lib/design";
 import { api } from "@/lib/api";
 import { CloseIcon, DownloadIcon } from "@/components/Icons";
 import { getParamGroups, getRequiredParams } from "@/lib/paramConfig";
+import { useParameterStream } from "@/hooks/useParameterStream";
 
 function confidenceColor(c) {
   return c >= 85 ? C.ok : c >= 70 ? C.warn : C.err;
@@ -302,6 +303,60 @@ export default function ResultsPanel({ token, projectId, projectName, onClose, i
     fetchParams();
     return () => { cancelled = true; clearTimeout(timer); };
   }, [token, projectId, refreshKey]);
+
+  // ── SSE live stream (Phase 5) ─────────────────────────────────────────────
+  // Subscribes to the incremental extraction coordinator and patches params
+  // into view as they land, in parallel with the polling loop above. When
+  // the stream is healthy it pre-empts polling visually; if SSE fails, the
+  // polling fallback continues to work unchanged.
+  const stream = useParameterStream(projectId, !!projectId);
+
+  // Merge SSE snapshot / updates into the displayed params whenever they
+  // change. We translate the stream's raw parameter rows (keyed by backend
+  // `parameter_key`) into the same shape mergeWithRequired expects, then
+  // run it through the existing merge pipeline so group metadata is intact.
+  useEffect(() => {
+    if (!stream || stream.status === "idle" || stream.status === "error") return;
+    if (!stream.parameters || stream.parameters.length === 0) return;
+
+    // Translate stream rows → the shape mergeWithRequired expects.
+    const translated = stream.parameters.map((p) => {
+      let parsedSources = p.sources;
+      if (typeof parsedSources === "string") {
+        try { parsedSources = JSON.parse(parsedSources); } catch { parsedSources = []; }
+      }
+      return {
+        parameter_name: p.parameter_key,
+        value: p.value,
+        unit: p.unit,
+        confidence: p.confidence,
+        sources: Array.isArray(parsedSources) ? parsedSources : [],
+        lifecycle_status: p.lifecycle_status,
+        change_count: p.change_count,
+        found: !!p.value,
+      };
+    });
+
+    const merged = mergeWithRequired(translated, projectType).map((row) => ({
+      ...row,
+      // Carry lifecycle into the merged row so renderer can show a chip.
+      lifecycleStatus:
+        translated.find((t) => t.parameter_name === row.key)?.lifecycle_status || null,
+      isFlashing: stream.flashingKeys?.has(row.key) || false,
+    }));
+    setParams(merged);
+
+    if (stream.pipelineStep) setPipelineStep(stream.pipelineStep);
+    if (stream.documents && stream.documents.length > 0) {
+      setDocuments(stream.documents);
+    }
+  }, [
+    stream.parameters,
+    stream.flashingKeys,
+    stream.pipelineStep,
+    stream.documents,
+    projectType,
+  ]);
 
   const handleReExtract = async () => {
     if (reExtracting || polling) return;
@@ -684,6 +739,13 @@ export default function ResultsPanel({ token, projectId, projectName, onClose, i
           <span style={{ fontSize: 11, color: C.text2, flex: 1 }}>
             {pipelineStep || (reExtracting ? `Re-extracting ${REQUIRED_PARAMS.length} parameters…` : "Processing documents…")}
           </span>
+          {/* Live streaming progress: indexed docs + params found so far */}
+          {stream?.progress?.total > 0 && (
+            <span style={{ fontSize: 10, color: C.text3, whiteSpace: "nowrap" }}>
+              {stream.progress.indexed}/{stream.progress.total} docs ·{" "}
+              <strong style={{ color: C.green }}>{params.filter(p => p.available).length}</strong> found
+            </span>
+          )}
         </div>
       )}
       {!loading && !polling && params.length > 0 && (
@@ -996,16 +1058,37 @@ export default function ResultsPanel({ token, projectId, projectName, onClose, i
                       }).join(" ")
                     : "";
                   const isEven = ri % 2 === 0;
+                  // Lifecycle chip: tentative (amber) · stable (blue) · final (green) · conflict (red)
+                  const lifecycle = r.lifecycleStatus;
+                  const lifecycleChip = lifecycle && lifecycle !== "final" ? (
+                    <span
+                      title={
+                        lifecycle === "tentative" ? "Tentative — may change as more documents index" :
+                        lifecycle === "stable" ? "Stable — unchanged across recent passes" :
+                        lifecycle === "conflict" ? "Conflict — value has flipped multiple times" : lifecycle
+                      }
+                      style={{
+                        display: "inline-block",
+                        width: 6, height: 6, borderRadius: 3, marginLeft: 5, verticalAlign: "middle",
+                        background:
+                          lifecycle === "tentative" ? "#f59e0b" :
+                          lifecycle === "stable"    ? "#3b82f6" :
+                          lifecycle === "conflict"  ? "#ef4444" : "transparent",
+                      }}
+                    />
+                  ) : null;
+                  const baseBg = isEven ? "transparent" : `${C.bg2}80`;
+                  const flashBg = r.isFlashing ? "rgba(245, 158, 11, 0.18)" : baseBg;
                   return (
                     <div key={ri}
                       onClick={() => setPopup(r)}
-                      style={{ display: "grid", gridTemplateColumns: "minmax(0,2.2fr) minmax(0,1.8fr) 56px 90px", padding: "6px 14px", background: isEven ? "transparent" : `${C.bg2}80`, borderBottom: `1px solid ${C.border}40`, cursor: "pointer", opacity: r.available ? 1 : 0.5, transition: "background 0.1s" }}
+                      style={{ display: "grid", gridTemplateColumns: "minmax(0,2.2fr) minmax(0,1.8fr) 56px 90px", padding: "6px 14px", background: flashBg, borderBottom: `1px solid ${C.border}40`, cursor: "pointer", opacity: r.available ? 1 : 0.5, transition: "background 0.6s ease" }}
                       onMouseEnter={e => { e.currentTarget.style.background = `${C.greenSubtle}`; }}
-                      onMouseLeave={e => { e.currentTarget.style.background = isEven ? "transparent" : `${C.bg2}80`; }}>
+                      onMouseLeave={e => { e.currentTarget.style.background = flashBg; }}>
                       {/* Parameter name */}
                       <div style={{ minWidth: 0, paddingRight: 8 }}>
                         <div style={{ fontSize: 11, fontWeight: 500, color: r.available ? C.text1 : C.text3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={r.label}>
-                          {r.label}
+                          {r.label}{lifecycleChip}
                         </div>
                         <div style={{ fontSize: 9, color: C.text3, marginTop: 1 }}>{r.unit}</div>
                       </div>

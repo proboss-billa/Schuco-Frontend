@@ -59,6 +59,16 @@ export const api = {
     return res.json();
   },
 
+  /**
+   * Open an SSE stream of live extraction events for a project. Returns a
+   * native EventSource; caller is responsible for attaching listeners and
+   * calling `.close()` on unmount. The endpoint is currently unauthenticated
+   * (matches `getParameters`).
+   */
+  openParameterStream(projectId) {
+    return new EventSource(`${BASE}/projects/${projectId}/parameters/stream`);
+  },
+
   async reExtract(token, projectId, model) {
     const url = new URL(`${BASE}/projects/${projectId}/re-extract`);
     if (model) url.searchParams.set("model", model);
