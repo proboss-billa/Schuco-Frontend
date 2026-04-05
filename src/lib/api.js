@@ -193,10 +193,10 @@ export const api = {
   async getModels() {
     try {
       const res = await fetch(`${BASE}/models`);
-      if (!res.ok) return { models: [], default: "claude-opus-4" };
+      if (!res.ok) return { models: [], default: "gemini-3-flash" };
       return res.json();
     } catch {
-      return { models: [], default: "claude-opus-4" };
+      return { models: [], default: "gemini-3-flash" };
     }
   },
 };

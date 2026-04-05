@@ -194,7 +194,7 @@ export default function ResultsPanel({ token, projectId, projectName, onClose, i
   const [timings, setTimings] = useState(null);
   const [showTimings, setShowTimings] = useState(false);
   const [timingView, setTimingView] = useState("summary"); // "summary" | "all"
-  const [selectedModel, setSelectedModel] = useState("claude-opus-4");
+  const [selectedModel, setSelectedModel] = useState("gemini-3-flash");
   const [availableModels, setAvailableModels] = useState([]);
 
   // Fetch available models on mount

@@ -94,10 +94,10 @@ export default function TenderIQ() {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [createDialogName, setCreateDialogName] = useState("");
   const [createDialogType, setCreateDialogType] = useState("commercial");
-  const [createDialogModel, setCreateDialogModel] = useState("claude-opus-4");
+  const [createDialogModel, setCreateDialogModel] = useState("gemini-3-flash");
   const [createDialogOcr, setCreateDialogOcr] = useState("auto");
   const [createDialogStreaming, setCreateDialogStreaming] = useState(true);
-  const [chatModel, setChatModel] = useState("claude-opus-4");
+  const [chatModel, setChatModel] = useState("gemini-3-flash");
   const [pendingFiles, setPendingFiles] = useState([]);
   const [availableModels, setAvailableModels] = useState([]);
   const [chatCounts, setChatCounts] = useState({});
