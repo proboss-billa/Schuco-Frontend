@@ -194,16 +194,9 @@ export default function ResultsPanel({ token, projectId, projectName, onClose, i
   const [timings, setTimings] = useState(null);
   const [showTimings, setShowTimings] = useState(false);
   const [timingView, setTimingView] = useState("summary"); // "summary" | "all"
-  const [selectedModel, setSelectedModel] = useState("gemini-3-flash");
-  const [availableModels, setAvailableModels] = useState([]);
-
-  // Fetch available models on mount
-  useEffect(() => {
-    api.getModels().then(data => {
-      setAvailableModels(data.models || []);
-      if (data.default) setSelectedModel(data.default);
-    });
-  }, []);
+  // Re-extract model is pinned to gemini-3-flash — the picker is hidden from
+  // the Results panel. handleReExtract still passes this through to the API.
+  const selectedModel = "gemini-3-flash";
   const [filterText, setFilterText] = useState("");
   const [activeTab, setActiveTab] = useState("all"); // "all" | "found" | "missing"
   const [collapsedGroups, setCollapsedGroups] = useState(new Set());
@@ -312,7 +305,12 @@ export default function ResultsPanel({ token, projectId, projectName, onClose, i
   // into view as they land, in parallel with the polling loop above. When
   // the stream is healthy it pre-empts polling visually; if SSE fails, the
   // polling fallback continues to work unchanged.
-  const stream = useParameterStream(projectId, !!projectId);
+  // Parked: the /parameters/stream SSE endpoint lives on the streaming
+  // extraction branch which was reverted. Passing `enabled=false` keeps the
+  // hook a no-op so EventSource never opens (avoids "An error occurred
+  // trying to load the resource" spam in the Network panel). Polling via
+  // the fetchParams effect above remains the source of truth.
+  const stream = useParameterStream(projectId, false);
 
   // Merge SSE snapshot / updates into the displayed params whenever they
   // change. We translate the stream's raw parameter rows (keyed by backend
@@ -808,25 +806,8 @@ export default function ResultsPanel({ token, projectId, projectName, onClose, i
               </div>
             )}
           </div>
-          {/* Model selector + Re-extract */}
+          {/* Re-extract (model pinned to gemini-3-flash, picker hidden) */}
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            {availableModels.length > 0 && (
-              <select
-                value={selectedModel}
-                onChange={e => setSelectedModel(e.target.value)}
-                disabled={reExtracting || polling}
-                style={{
-                  padding: "4px 8px", background: C.bg1, border: `1px solid ${C.border2}`,
-                  borderRadius: 6, color: C.text2, fontSize: 10, fontFamily: F.sans,
-                  cursor: (reExtracting || polling) ? "default" : "pointer",
-                  opacity: (reExtracting || polling) ? 0.5 : 1,
-                  outline: "none", appearance: "auto",
-                }}>
-                {availableModels.map(m => (
-                  <option key={m.key} value={m.key}>{m.display_name}</option>
-                ))}
-              </select>
-            )}
             <button
               onClick={handleReExtract}
               disabled={reExtracting || polling}
@@ -1256,7 +1237,16 @@ export default function ResultsPanel({ token, projectId, projectName, onClose, i
                             {src.document || "Unknown document"}
                             {canOpen && <span style={{ fontSize: 9, opacity: 0.6, marginLeft: 4 }}>↗</span>}
                           </div>
-                          {src.section && <div style={{ fontSize: 9, color: C.text3, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{src.section}</div>}
+                          {(() => {
+                            const sections = (src.sections && src.sections.length)
+                              ? src.sections
+                              : (src.section ? [src.section] : []);
+                            return sections.length > 0 && (
+                              <div style={{ fontSize: 9, color: C.text3, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={sections.join(" • ")}>
+                                {sections.join(" • ")}
+                              </div>
+                            );
+                          })()}
                         </div>
                         <div style={{ display: "flex", gap: 3, flexShrink: 0, flexWrap: "wrap" }}>
                           {(src.pages || []).map(pg => (
