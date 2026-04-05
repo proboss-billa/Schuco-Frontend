@@ -60,9 +60,6 @@ const TECH_SPEC_PARAMS = [
   { key: "Door Closure Required",                              label: "Door Closure Required",                              unit: "yes/no",              type: "residential" },
   { key: "SS Screws & Hardware – Visible Area",                label: "SS Screws & Hardware – Visible Area",                unit: "SS 304 / 316",        type: "residential" },
   { key: "SS Screws & Hardware – Non-Visible Area",            label: "SS Screws & Hardware – Non-Visible Area",            unit: "SS 304 / 316",        type: "residential" },
-  { key: "Aluminium Alloy (6063 / 6060)",                      label: "Aluminium Alloy (6063 / 6060)",                      unit: "alloy",               type: "residential" },
-  { key: "Shims – Make / Type (HDG / PVC)",                    label: "Shims – Make / Type (HDG / PVC)",                    unit: "HDG / PVC",           type: "residential" },
-  { key: "PMU Requirement",                                    label: "PMU Requirement",                                    unit: "yes/no",              type: "residential" },
   { key: "VMU Requirement",                                    label: "VMU Requirement",                                    unit: "yes/no",              type: "residential" },
 ];
 
@@ -105,19 +102,10 @@ const TENDER_DRAWING_PARAMS = [
   { key: "Mullion Structural Design Principle",                label: "Mullion Structural Design Principle",                unit: "type",                type: "commercial" },
 
   // Residential-only
-  { key: "Profile Wall Thickness",                             label: "Profile Wall Thickness",                             unit: "mm",                  type: "residential" },
-  { key: "Arch / Curved Windows",                              label: "Arch / Curved Windows",                              unit: "yes/no",              type: "residential" },
   { key: "Slider Types",                                       label: "Slider Types",                                       unit: "type",                type: "residential" },
   { key: "Openable Types",                                     label: "Openable Types",                                     unit: "type",                type: "residential" },
   { key: "Chajja Details (Width, Depth, Shape)",               label: "Chajja Details (Width, Depth, Shape)",               unit: "mm",                  type: "residential" },
-  { key: "Windows Layout",                                     label: "Windows Layout",                                     unit: "yes/no",              type: "residential" },
-  { key: "Openable Windows – Inside / Outside",                label: "Openable Windows – Inside / Outside",                unit: "type",                type: "residential" },
-  { key: "Mesh Required",                                      label: "Mesh Required",                                      unit: "yes/no",              type: "residential" },
-  { key: "Mesh Interlock Detail",                              label: "Mesh Interlock Detail",                              unit: "yes/no",              type: "residential" },
-  { key: "Make of Mesh",                                       label: "Make of Mesh",                                       unit: "brand",               type: "residential" },
-  { key: "Curved Glass",                                       label: "Curved Glass",                                       unit: "yes/no",              type: "residential" },
   { key: "No. of Floors",                                      label: "No. of Floors",                                      unit: "floors",              type: "residential" },
-  { key: "Slider / Openable Integrated with Façade",           label: "Slider / Openable Integrated with Façade",           unit: "yes/no",              type: "residential" },
   { key: "Gutter – Integrated / Third Party",                  label: "Gutter – Integrated / Third Party",                  unit: "type",                type: "residential" },
 ];
 
@@ -126,7 +114,6 @@ const BOQ_PARAMS = [
   // Shared
   { key: "Glazing / Façade Area",                              label: "Glazing / Façade Area",                              unit: "m²",                  type: "both" },
   { key: "Handle for Openable",                                label: "Handle for Openable",                                unit: "type",                type: "both" },
-  { key: "No. of Locking Points (BOQ)",                        label: "No. of Locking Points",                              unit: "nos",                 type: "both" },
   { key: "Hardware Specification",                             label: "Hardware Specification",                             unit: "brand / grade",       type: "both" },
   { key: "Concealed Door Closure & Hinge",                     label: "Concealed Door Closure & Hinge",                     unit: "yes/no",              type: "both" },
   { key: "Screw Hole Caps",                                    label: "Screw Hole Caps",                                    unit: "yes/no",              type: "both" },
@@ -136,7 +123,6 @@ const BOQ_PARAMS = [
   { key: "Door Threshold Type",                                label: "Door Threshold Type",                                unit: "type",                type: "commercial" },
   { key: "Distance – Glass Edge to Glass Support",             label: "Distance – Glass Edge to Glass Support",             unit: "mm",                  type: "commercial" },
   { key: "Aluminium Alloy (6063 / 6060)",                      label: "Aluminium Alloy (6063 / 6060)",                      unit: "alloy",               type: "commercial" },
-  { key: "SS Screws & Hardware Grade",                         label: "SS 316 or 304 for Screws & Hardware",                unit: "SS 304 / 316",        type: "commercial" },
   { key: "Durability Requirements",                            label: "Durability Requirements",                            unit: "cycles / years",      type: "commercial" },
   { key: "PMU Requirement",                                    label: "PMU Requirements",                                   unit: "yes/no",              type: "commercial" },
   { key: "Lifting Provision",                                  label: "Lifting Provision",                                  unit: "yes/no",              type: "commercial" },
@@ -159,7 +145,6 @@ const BOQ_PARAMS = [
   { key: "Door Type (Pivot / Swing)",                          label: "Door Type (Pivot / Swing)",                          unit: "type",                type: "residential" },
   { key: "Georgian Bar Requirements",                          label: "Georgian Bar Requirements",                          unit: "yes/no",              type: "residential" },
   { key: "Integration with Ventilators (Renson)",             label: "Integration with Ventilators (Renson)",             unit: "yes/no",              type: "residential" },
-  { key: "Door Threshold (Frame / Medium / Flat)",             label: "Door Threshold (Frame / Medium / Flat)",             unit: "type",                type: "residential" },
   { key: "Interlock End Caps",                                 label: "Interlock End Caps",                                 unit: "yes/no",              type: "residential" },
   { key: "Door Stopper",                                       label: "Door Stopper",                                       unit: "yes/no",              type: "residential" },
   { key: "Automation",                                         label: "Automation",                                         unit: "yes/no",              type: "residential" },
