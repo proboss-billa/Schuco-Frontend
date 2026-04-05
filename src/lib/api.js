@@ -24,10 +24,11 @@ export const api = {
     return res.json();
   },
 
-  async createProject(token, name, description, files) {
+  async createProject(token, name, description, files, projectType = "commercial") {
     const form = new FormData();
     form.append("project_name", name);
     form.append("project_description", description || "");
+    form.append("project_type", projectType || "commercial");
     files.forEach((f) => form.append("files", f));
     const res = await fetch(`${BASE}/projects/create`, {
       method: "POST",
@@ -38,8 +39,10 @@ export const api = {
     return res.json();
   },
 
-  async processProject(token, projectId) {
-    const res = await fetch(`${BASE}/projects/${projectId}/process`, {
+  async processProject(token, projectId, model) {
+    const url = new URL(`${BASE}/projects/${projectId}/process`);
+    if (model) url.searchParams.set("model", model);
+    const res = await fetch(url.toString(), {
       method: "POST",
       headers: authHeaders(token),
     });
@@ -55,9 +58,39 @@ export const api = {
     return res.json();
   },
 
-  async query(token, projectId, question) {
+  async reExtract(token, projectId, model) {
+    const url = new URL(`${BASE}/projects/${projectId}/re-extract`);
+    if (model) url.searchParams.set("model", model);
+    const res = await fetch(url.toString(), {
+      method: "POST",
+      headers: authHeaders(token),
+    });
+    if (!res.ok) throw new Error(await res.text());
+    return res.json();
+  },
+
+  async reprocessDocument(token, projectId, documentId) {
+    const res = await fetch(`${BASE}/projects/${projectId}/documents/${documentId}/reprocess`, {
+      method: "POST",
+      headers: authHeaders(token),
+    });
+    if (!res.ok) throw new Error(await res.text());
+    return res.json();
+  },
+
+  async reExtractSingle(token, projectId, paramKey) {
+    const res = await fetch(`${BASE}/projects/${projectId}/parameters/${paramKey}/re-extract`, {
+      method: "POST",
+      headers: authHeaders(token),
+    });
+    if (!res.ok) throw new Error(await res.text());
+    return res.json();
+  },
+
+  async query(token, projectId, question, model) {
     const form = new FormData();
     form.append("query", question);
+    if (model) form.append("model", model);
     const res = await fetch(`${BASE}/projects/${projectId}/query`, {
       method: "POST",
       headers: authHeaders(token),
@@ -75,6 +108,51 @@ export const api = {
     return res.json();
   },
 
+  async getTimings(token, projectId) {
+    try {
+      const res = await fetch(`${BASE}/projects/${projectId}/timings`, {
+        headers: authHeaders(token),
+      });
+      if (!res.ok) return null;
+      return res.json();
+    } catch {
+      return null;
+    }
+  },
+
+  async getChatHistory(token, projectId) {
+    try {
+      const res = await fetch(`${BASE}/projects/${projectId}/chat-history`, {
+        headers: authHeaders(token),
+      });
+      if (!res.ok) return { messages: [] };
+      return res.json();
+    } catch {
+      return { messages: [] };
+    }
+  },
+
+  getDocumentFileUrl(projectId, documentId) {
+    return `${BASE}/projects/${projectId}/documents/${documentId}/file`;
+  },
+
+  async listDocuments(token, projectId) {
+    const res = await fetch(`${BASE}/projects/${projectId}/documents`, {
+      headers: authHeaders(token),
+    });
+    if (!res.ok) return [];
+    return res.json();
+  },
+
+  async deleteProject(token, projectId) {
+    const res = await fetch(`${BASE}/projects/${projectId}`, {
+      method: "DELETE",
+      headers: authHeaders(token),
+    });
+    if (!res.ok) throw new Error(await res.text());
+    return res.json();
+  },
+
   async listProjects(token) {
     try {
       const res = await fetch(`${BASE}/projects`, {
@@ -84,6 +162,16 @@ export const api = {
       return res.json();
     } catch {
       return [];
+    }
+  },
+
+  async getModels() {
+    try {
+      const res = await fetch(`${BASE}/models`);
+      if (!res.ok) return { models: [], default: "claude-opus-4" };
+      return res.json();
+    } catch {
+      return { models: [], default: "claude-opus-4" };
     }
   },
 };

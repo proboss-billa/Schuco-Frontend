@@ -49,9 +49,9 @@ export function DeleteModal({ name, onConfirm, onClose }) {
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 600, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F.sans }}>
       <div style={{ background: C.bg1, borderRadius: 14, padding: 24, width: 380, border: `1px solid ${C.border2}`, boxShadow: "0 16px 48px rgba(0,0,0,0.5)", animation: "fadeUp .2s ease" }}>
-        <h3 style={{ margin: "0 0 8px", fontSize: 16, fontWeight: 600, color: C.text1 }}>Delete chat?</h3>
+        <h3 style={{ margin: "0 0 8px", fontSize: 16, fontWeight: 600, color: C.text1 }}>Delete project?</h3>
         <p style={{ margin: "0 0 20px", fontSize: 13, color: C.text2, lineHeight: 1.5 }}>
-          <strong style={{ color: C.text1 }}>{name}</strong> will be permanently deleted.
+          <strong style={{ color: C.text1 }}>{name}</strong> and all its documents, extractions, and chat history will be permanently deleted.
         </p>
         <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
           <button onClick={onClose} style={{ padding: "9px 18px", background: "transparent", border: `1px solid ${C.border}`, borderRadius: 8, color: C.text2, cursor: "pointer", fontSize: 13, fontFamily: F.sans }}>Cancel</button>

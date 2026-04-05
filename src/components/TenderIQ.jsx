@@ -40,11 +40,27 @@ function TypingIndicator({ stage }) {
   );
 }
 
-// ── Markdown-lite bold renderer ──────────────────────
-function BoldText({ text }) {
-  return text.split("**").map((part, j) =>
-    j % 2 === 1 ? <strong key={j}>{part}</strong> : part
-  );
+// ── Markdown-lite renderer (bold, bullets, line breaks) ──
+function RichText({ text }) {
+  if (!text) return null;
+  const lines = text.split("\n");
+  return lines.map((line, i) => {
+    const trimmed = line.trim();
+    // Bullet points: - or • or *
+    const isBullet = /^[-•*]\s+/.test(trimmed);
+    const content = isBullet ? trimmed.replace(/^[-•*]\s+/, "") : trimmed;
+    // Bold rendering
+    const parts = content.split("**").map((part, j) =>
+      j % 2 === 1 ? <strong key={j}>{part}</strong> : <span key={j}>{part}</span>
+    );
+    if (isBullet) {
+      return <div key={i} style={{ display: "flex", gap: 6, marginLeft: 4, marginTop: 2, marginBottom: 2 }}><span style={{ flexShrink: 0, opacity: 0.5 }}>•</span><span>{parts}</span></div>;
+    }
+    if (trimmed === "") {
+      return <div key={i} style={{ height: 8 }} />;
+    }
+    return <div key={i}>{parts}</div>;
+  });
 }
 
 // ── Main App ─────────────────────────────────────────
@@ -72,11 +88,49 @@ export default function TenderIQ() {
   const [deleteModal, setDeleteModal] = useState(null);
   const [currentProjectId, setCurrentProjectId] = useState(null);
   const [currentProjectName, setCurrentProjectName] = useState("");
+  const [currentProjectType, setCurrentProjectType] = useState("commercial");
   const [chats, setChats] = useState([]);
+  // Project creation dialog state
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [createDialogName, setCreateDialogName] = useState("");
+  const [createDialogType, setCreateDialogType] = useState("commercial");
+  const [createDialogModel, setCreateDialogModel] = useState("claude-opus-4");
+  const [chatModel, setChatModel] = useState("claude-opus-4");
+  const [pendingFiles, setPendingFiles] = useState([]);
+  const [availableModels, setAvailableModels] = useState([]);
   const [chatCounts, setChatCounts] = useState({});
   const fileRef = useRef(null);
   const chatEnd = useRef(null);
   const dragState = useRef(null);
+
+  // Auto-login with default credentials
+  useEffect(() => {
+    api.login("abc@sooru.ai", "12345678")
+      .then(data => {
+        setToken(data.access_token);
+        setScreen("main");
+        api.listProjects(data.access_token).then(projects => {
+          if (Array.isArray(projects) && projects.length > 0) {
+            setChats(projects.map(p => ({
+              id: p.project_id || p.id,
+              title: p.project_name || p.name || "Untitled",
+              type: p.project_type || "commercial",
+              date: p.created_at || "",
+              updated: p.updated_at || p.created_at || "",
+            })));
+          }
+        });
+      })
+      .catch(() => {}); // fall through to login screen if it fails
+    // Fetch available models
+    api.getModels().then(data => {
+      setAvailableModels(data.models || []);
+      if (data.default) {
+        setCreateDialogModel(data.default);
+        setChatModel(data.default);
+      }
+    });
+  }, []);
 
   // Responsive
   useEffect(() => {
@@ -171,31 +225,22 @@ export default function TenderIQ() {
     setMsgs(newMsgs);
 
     if (uploadedFiles.length > 0) {
-      // Upload + process flow
-      const projectName = userText || uploadedFiles[0].name.replace(/\.[^/.]+$/, "");
-      runTypingAnimation(async () => {
-        try {
-          const created = await api.createProject(token, projectName, "", uploadedFiles);
-          const pid = created.project_id;
-          await api.processProject(token, pid);
-          setCurrentProjectId(pid);
-          setCurrentProjectName(projectName);
-          setShowResults(true);
-          const assistantMsg = {
-            role: "assistant", type: "analysis",
-            content: `I've analyzed **${projectName}** and extracted the key parameters. You can see the structured results in the side panel.\n\nWhat would you like to dive deeper into?`,
-          };
-          setMsgs([...newMsgs, assistantMsg]);
-          // Add to sidebar
-          setChats(prev => [{ id: pid, title: projectName, date: "Today" }, ...prev]);
-        } catch (e) {
-          setMsgs([...newMsgs, { role: "assistant", type: "text", content: `Error during analysis: ${e.message}` }]);
-        }
-      });
+      // Show project creation dialog instead of immediately processing
+      const defaultName = userText || uploadedFiles[0].name.replace(/\.[^/.]+$/, "");
+      setPendingFiles(uploadedFiles);
+      setCreateDialogName(defaultName);
+      // Try to auto-detect type from filename keywords
+      const allNames = uploadedFiles.map(f => f.name.toLowerCase()).join(" ");
+      const residentialHints = ["residential", "villa", "apartment", "flat", "house", "dwelling", "home", "tower", "floor"];
+      const isResidential = residentialHints.some(kw => allNames.includes(kw));
+      setCreateDialogType(isResidential ? "residential" : "commercial");
+      setShowCreateDialog(true);
+      // Store current msgs for later continuation
+      return;
     } else if (currentProjectId) {
       // Chat with existing project
       try {
-        const res = await api.query(token, currentProjectId, userText);
+        const res = await api.query(token, currentProjectId, userText, chatModel);
         const sources = (res.sources || []).filter(s => s.page || s.section);
         setMsgs([...newMsgs, {
           role: "assistant", type: "text",
@@ -211,15 +256,95 @@ export default function TenderIQ() {
     }
   };
 
-  const openChat = (chat) => {
+  // ── Create project after dialog confirmation ──
+  const handleCreateProject = () => {
+    const projectName = createDialogName.trim() || "Untitled Project";
+    const projectType = createDialogType;
+    const modelKey = createDialogModel;
+    const uploadedFiles = pendingFiles;
+    setShowCreateDialog(false);
+    setPendingFiles([]);
+
+    const userMsg = { role: "user", type: "file", content: uploadedFiles.map(f => f.name).join(", "), text: projectName };
+    const newMsgs = [...msgs, userMsg];
+    setMsgs(newMsgs);
+
+    runTypingAnimation(async () => {
+      try {
+        const created = await api.createProject(token, projectName, "", uploadedFiles, projectType);
+        const pid = created.project_id;
+        await api.processProject(token, pid, modelKey);
+        setCurrentProjectId(pid);
+        setCurrentProjectName(projectName);
+        setCurrentProjectType(projectType);
+        setShowResults(true);
+        const typeLabel = projectType === "residential" ? "Residential" : "Commercial";
+        const assistantMsg = {
+          role: "assistant", type: "analysis",
+          content: `I've analyzed **${projectName}** (${typeLabel}) and extracted the key parameters. You can see the structured results in the side panel.\n\nWhat would you like to dive deeper into?`,
+        };
+        setMsgs([...newMsgs, assistantMsg]);
+        setChats(prev => [{ id: pid, title: projectName, type: projectType, date: "Today", updated: "Just now" }, ...prev]);
+      } catch (e) {
+        setMsgs([...newMsgs, { role: "assistant", type: "text", content: `Error during analysis: ${e.message}` }]);
+      }
+    });
+  };
+
+  // Persist chat messages to localStorage whenever they change
+  useEffect(() => {
+    if (currentProjectId && msgs.length > 0) {
+      try {
+        localStorage.setItem(`tiq_chat_${currentProjectId}`, JSON.stringify(msgs));
+      } catch {}
+    }
+  }, [msgs, currentProjectId]);
+
+  const openChat = async (chat) => {
     setCurrentProjectId(chat.id);
     setCurrentProjectName(chat.title);
-    setMsgs([
-      { role: "user", type: "file", content: `${chat.title}.pdf`, text: "Load this analysis" },
-      { role: "assistant", type: "analysis", content: `Loaded **${chat.title}**. The extracted parameters are ready in the side panel. What would you like to know?` },
-    ]);
+    setCurrentProjectType(chat.type || "commercial");
     setShowResults(true);
     if (isMob) setSideOpen(false);
+
+    // 1) Try localStorage first (instant)
+    try {
+      const cached = localStorage.getItem(`tiq_chat_${chat.id}`);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setMsgs(parsed);
+          // Still fetch from server in background to sync
+          api.getChatHistory(token, chat.id).then(data => {
+            if (data.messages && data.messages.length > 0) {
+              const welcomeMsg = { role: "assistant", type: "analysis", content: `Loaded **${chat.title}**. The extracted parameters are ready in the side panel.\n\nWhat would you like to know?` };
+              setMsgs([welcomeMsg, ...data.messages]);
+            }
+          }).catch(() => {});
+          return;
+        }
+      }
+    } catch {}
+
+    // 2) Fetch from server
+    const loadingMsgs = [
+      { role: "assistant", type: "analysis", content: `Loading **${chat.title}**...` },
+    ];
+    setMsgs(loadingMsgs);
+
+    try {
+      const data = await api.getChatHistory(token, chat.id);
+      const welcomeMsg = { role: "assistant", type: "analysis", content: `Loaded **${chat.title}**. The extracted parameters are ready in the side panel.\n\nWhat would you like to know?` };
+      if (data.messages && data.messages.length > 0) {
+        setMsgs([welcomeMsg, ...data.messages]);
+      } else {
+        setMsgs([welcomeMsg]);
+      }
+    } catch {
+      setMsgs([
+        { role: "assistant", type: "analysis", content: `Loaded **${chat.title}**. The extracted parameters are ready in the side panel.\n\nWhat would you like to know?` },
+      ]);
+    }
   };
 
   const handleCtx = (e, chat) => { e.preventDefault(); e.stopPropagation(); setCtxMenu({ x: e.clientX, y: e.clientY, chat }); };
@@ -231,6 +356,9 @@ export default function TenderIQ() {
     setIsTyping(false);
     setCurrentProjectId(null);
     setCurrentProjectName("");
+    setCurrentProjectType("commercial");
+    setShowCreateDialog(false);
+    setPendingFiles([]);
   };
 
   // ── Auth screen ──
@@ -243,7 +371,9 @@ export default function TenderIQ() {
         setChats(projects.map(p => ({
           id: p.project_id || p.id,
           title: p.project_name || p.name || "Untitled",
-          date: p.created_at ? new Date(p.created_at).toLocaleDateString() : "",
+          type: p.project_type || "commercial",
+          date: p.created_at || "",
+          updated: p.updated_at || p.created_at || "",
         })));
       }
     });
@@ -350,18 +480,35 @@ export default function TenderIQ() {
             <>
               <div style={{ fontSize: 10, fontWeight: 600, color: C.text3, padding: "6px 8px 5px", letterSpacing: "0.1em", textTransform: "uppercase" }}>Recent</div>
               {chats.length === 0 && <div style={{ padding: "10px 8px", fontSize: 12, color: C.text3 }}>No analyses yet</div>}
-              {chats.map(chat => (
-                <div key={chat.id} style={{ position: "relative", marginBottom: 1 }}>
+              {chats.map(chat => {
+                const isComm = (chat.type || "commercial") === "commercial";
+                const typeBadge = isComm ? "C" : "R";
+                const typeBg = isComm ? "rgba(74,158,255,0.15)" : "rgba(0,196,140,0.15)";
+                const typeColor = isComm ? "#4A9EFF" : "#00C48C";
+                const fmtDate = (d) => {
+                  if (!d) return "";
+                  try { const dt = new Date(d); return dt.toLocaleDateString("en-IN", { day: "2-digit", month: "short" }) + " " + dt.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: false }); } catch { return ""; }
+                };
+                return (
+                <div key={chat.id} style={{ position: "relative", marginBottom: 2 }}>
                   <button onClick={() => openChat(chat)} onContextMenu={e => handleCtx(e, chat)}
-                    style={{ width: "100%", padding: "8px 30px 8px 10px", background: currentProjectId === chat.id ? C.bg2 : "transparent", border: "none", borderRadius: 7, color: currentProjectId === chat.id ? C.text1 : C.text2, cursor: "pointer", textAlign: "left", fontFamily: F.sans, fontSize: 13, display: "flex", alignItems: "center", gap: 8, transition: "all 0.1s" }}
+                    style={{ width: "100%", padding: "8px 28px 8px 10px", background: currentProjectId === chat.id ? C.bg2 : "transparent", border: "none", borderRadius: 7, color: currentProjectId === chat.id ? C.text1 : C.text2, cursor: "pointer", textAlign: "left", fontFamily: F.sans, fontSize: 12, display: "flex", alignItems: "flex-start", gap: 8, transition: "all 0.1s" }}
                     onMouseEnter={e => { if (currentProjectId !== chat.id) { e.currentTarget.style.background = C.bg2; e.currentTarget.style.color = C.text1; } }}
                     onMouseLeave={e => { if (currentProjectId !== chat.id) { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = C.text2; } }}>
-                    <div style={{ position: "relative", flexShrink: 0 }}>
+                    <div style={{ position: "relative", flexShrink: 0, marginTop: 2 }}>
                       <ChatIcon />
                     </div>
-                    <div style={{ flex: 1, overflow: "hidden" }}>
-                      <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{chat.title}</div>
-                      <div style={{ fontSize: 10, color: C.text3, marginTop: 1 }}>{chat.date}</div>
+                    <div style={{ flex: 1, overflow: "hidden", minWidth: 0 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 13, fontWeight: 500 }}>{chat.title}</span>
+                        <span style={{ fontSize: 9, fontWeight: 700, padding: "1px 4px", borderRadius: 3, background: typeBg, color: typeColor, flexShrink: 0, letterSpacing: "0.03em" }}>{typeBadge}</span>
+                      </div>
+                      <div style={{ fontSize: 10, color: C.text3, marginTop: 2, display: "flex", gap: 6 }}>
+                        <span title="Created">{fmtDate(chat.date)}</span>
+                        {chat.updated && chat.updated !== chat.date && (
+                          <span title="Last modified" style={{ opacity: 0.7 }}>| {fmtDate(chat.updated)}</span>
+                        )}
+                      </div>
                     </div>
                   </button>
                   <button onClick={e => handleCtx(e, chat)}
@@ -371,7 +518,8 @@ export default function TenderIQ() {
                     <MoreIcon />
                   </button>
                 </div>
-              ))}
+                );
+              })}
             </>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2, paddingTop: 4 }}>
@@ -449,7 +597,7 @@ export default function TenderIQ() {
                       e.preventDefault();
                       setIsDragging(false);
                       const dropped = Array.from(e.dataTransfer.files).filter(f =>
-                        /\.(pdf|docx?|xlsx?)$/i.test(f.name)
+                        /\.(pdf|docx?|xlsx?|csv|ods|dxf|dwg)$/i.test(f.name)
                       );
                       if (dropped.length) setFiles(dropped);
                     }}
@@ -469,7 +617,7 @@ export default function TenderIQ() {
                     </div>
                     <div style={{ fontSize: 12, color: C.text3, marginBottom: 16 }}>or click to browse</div>
                     <div style={{ display: "flex", justifyContent: "center", gap: 8, flexWrap: "wrap" }}>
-                      {["PDF", "DOCX", "XLSX"].map(ext => (
+                      {["PDF", "DOCX", "XLSX", "CSV"].map(ext => (
                         <span key={ext} style={{ padding: "3px 10px", background: C.bg, border: `1px solid ${C.border}`, borderRadius: 20, fontSize: 11, color: C.text3, fontWeight: 600 }}>{ext}</span>
                       ))}
                     </div>
@@ -519,15 +667,18 @@ export default function TenderIQ() {
                       </div>
                     )}
                     <div style={{ fontSize: 14, lineHeight: 1.65, color: m.role === "user" ? "#111" : C.text1, whiteSpace: "pre-wrap", fontWeight: m.role === "user" ? 500 : 400 }}>
-                      <BoldText text={m.text || m.content} />
+                      <RichText text={m.text || m.content} />
                     </div>
                     {m.sources?.length > 0 && (
-                      <div style={{ marginTop: 10, padding: "8px 10px", background: "rgba(0,0,0,0.15)", borderRadius: 6, fontSize: 11, color: C.text3, borderTop: `1px solid rgba(255,255,255,0.06)` }}>
-                        <div style={{ fontWeight: 600, marginBottom: 5, color: C.text2, fontSize: 10, textTransform: "uppercase", letterSpacing: "0.05em" }}>Sources</div>
+                      <div style={{ marginTop: 12, padding: "10px 12px", background: "rgba(0,196,140,0.06)", borderRadius: 8, border: `1px solid rgba(0,196,140,0.15)` }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={C.green} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                          <span style={{ fontWeight: 700, fontSize: 11, color: C.green, textTransform: "uppercase", letterSpacing: "0.06em" }}>Source Documents</span>
+                        </div>
                         {m.sources.map((s, j) => (
-                          <div key={j} style={{ display: "flex", alignItems: "flex-start", gap: 5, marginBottom: 3 }}>
-                            <span style={{ color: C.green, fontWeight: 700, flexShrink: 0 }}>·</span>
-                            <span>{s}</span>
+                          <div key={j} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 8px", marginBottom: 4, background: "rgba(255,255,255,0.04)", borderRadius: 5, fontSize: 12, color: C.text1 }}>
+                            <span style={{ color: C.green, fontWeight: 700, fontSize: 13, flexShrink: 0 }}>{j + 1}.</span>
+                            <span style={{ fontWeight: 500 }}>{s}</span>
                           </div>
                         ))}
                       </div>
@@ -552,6 +703,30 @@ export default function TenderIQ() {
                   ))}
                 </div>
               )}
+              {/* Model dropdown above input */}
+              {availableModels.length > 0 && (
+                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
+                  <span style={{ fontSize: 10, color: C.text3, fontWeight: 500 }}>Model:</span>
+                  <select
+                    value={chatModel}
+                    onChange={e => setChatModel(e.target.value)}
+                    style={{
+                      fontSize: 11, fontFamily: F.sans, fontWeight: 600,
+                      padding: "3px 24px 3px 8px", borderRadius: 6,
+                      background: C.bg1, color: C.green,
+                      border: `1px solid ${C.greenBorder}`,
+                      cursor: "pointer", outline: "none",
+                      appearance: "none", WebkitAppearance: "none",
+                      backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%238bc53f'/%3E%3C/svg%3E")`,
+                      backgroundRepeat: "no-repeat",
+                      backgroundPosition: "right 8px center",
+                    }}>
+                    {availableModels.map(m => (
+                      <option key={m.key} value={m.key}>{m.display_name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
               <div style={{ display: "flex", alignItems: "flex-end", gap: 8, background: C.bg1, borderRadius: 12, border: `1px solid ${C.border}`, padding: "5px 8px 5px 5px" }}>
                 <button onClick={() => fileRef.current?.click()}
                   style={{ padding: 8, background: "none", border: "none", color: C.text3, cursor: "pointer", borderRadius: 6, flexShrink: 0 }}
@@ -559,7 +734,7 @@ export default function TenderIQ() {
                   onMouseLeave={e => e.currentTarget.style.color = C.text3}>
                   <UploadIcon />
                 </button>
-                <input ref={fileRef} type="file" multiple accept=".pdf,.xlsx,.xls,.docx,.doc" style={{ display: "none" }}
+                <input ref={fileRef} type="file" multiple accept=".pdf,.xlsx,.xls,.csv,.ods,.docx,.doc,.dxf,.dwg" style={{ display: "none" }}
                   onChange={e => { setFiles(Array.from(e.target.files)); e.target.value = ""; }} />
                 <textarea value={input} onChange={e => setInput(e.target.value)}
                   onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
@@ -652,8 +827,90 @@ export default function TenderIQ() {
       )}
       {deleteModal && (
         <DeleteModal name={deleteModal.title}
-          onConfirm={() => { setChats(chats.filter(c => c.id !== deleteModal.id)); if (currentProjectId === deleteModal.id) newAnalysis(); setDeleteModal(null); }}
+          onConfirm={async () => {
+            const delId = deleteModal.id;
+            setChats(chats.filter(c => c.id !== delId));
+            if (currentProjectId === delId) newAnalysis();
+            setDeleteModal(null);
+            try { await api.deleteProject(token, delId); } catch(e) { console.error("Delete failed:", e); }
+          }}
           onClose={() => setDeleteModal(null)} />
+      )}
+
+      {/* ── Project Creation Dialog ── */}
+      {showCreateDialog && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(10,14,20,0.85)", zIndex: 600, display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(4px)", animation: "fadeUp 0.2s ease" }}>
+          <div style={{ background: C.bg1, borderRadius: 20, padding: "32px 36px", border: `1px solid ${C.border}`, maxWidth: 420, width: "90%" }}>
+            <div style={{ fontSize: 18, fontWeight: 700, color: C.text1, marginBottom: 4 }}>New Project</div>
+            <div style={{ fontSize: 12, color: C.text3, marginBottom: 20 }}>{pendingFiles.length} file{pendingFiles.length !== 1 ? "s" : ""} selected</div>
+
+            {/* Project Name */}
+            <label style={{ fontSize: 11, fontWeight: 600, color: C.text2, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6, display: "block" }}>Project Name</label>
+            <input
+              value={createDialogName}
+              onChange={e => setCreateDialogName(e.target.value)}
+              onKeyDown={e => { if (e.key === "Enter") handleCreateProject(); }}
+              autoFocus
+              style={{ width: "100%", padding: "10px 14px", background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, color: C.text1, fontSize: 14, fontFamily: F.sans, outline: "none", marginBottom: 18, boxSizing: "border-box" }}
+              placeholder="Enter project name..."
+            />
+
+            {/* Project Type */}
+            <label style={{ fontSize: 11, fontWeight: 600, color: C.text2, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8, display: "block" }}>Project Type</label>
+            <div style={{ display: "flex", gap: 10, marginBottom: 24 }}>
+              {[
+                { value: "commercial", label: "Commercial", icon: "🏢", desc: "Office, Mall, IT Park" },
+                { value: "residential", label: "Residential", icon: "🏠", desc: "Villa, Apartment, Tower" },
+              ].map(opt => (
+                <button key={opt.value}
+                  onClick={() => setCreateDialogType(opt.value)}
+                  style={{
+                    flex: 1, padding: "14px 12px", background: createDialogType === opt.value ? (opt.value === "commercial" ? "rgba(74,158,255,0.1)" : "rgba(0,196,140,0.1)") : C.bg,
+                    border: `2px solid ${createDialogType === opt.value ? (opt.value === "commercial" ? "#4A9EFF" : "#00C48C") : C.border}`,
+                    borderRadius: 10, cursor: "pointer", textAlign: "center", transition: "all 0.15s", fontFamily: F.sans,
+                  }}>
+                  <div style={{ fontSize: 24, marginBottom: 4 }}>{opt.icon}</div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: createDialogType === opt.value ? C.text1 : C.text2 }}>{opt.label}</div>
+                  <div style={{ fontSize: 10, color: C.text3, marginTop: 2 }}>{opt.desc}</div>
+                </button>
+              ))}
+            </div>
+
+            {/* AI Model */}
+            {availableModels.length > 0 && (
+              <>
+                <label style={{ fontSize: 11, fontWeight: 600, color: C.text2, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8, display: "block" }}>AI Model</label>
+                <div style={{ display: "flex", gap: 8, marginBottom: 24, flexWrap: "wrap" }}>
+                  {availableModels.map(m => (
+                    <button key={m.key}
+                      onClick={() => setCreateDialogModel(m.key)}
+                      style={{
+                        flex: "1 1 auto", minWidth: 90, padding: "10px 10px", textAlign: "center",
+                        background: createDialogModel === m.key ? "rgba(139,197,63,0.1)" : C.bg,
+                        border: `2px solid ${createDialogModel === m.key ? C.green : C.border}`,
+                        borderRadius: 10, cursor: "pointer", transition: "all 0.15s", fontFamily: F.sans,
+                      }}>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: createDialogModel === m.key ? C.text1 : C.text2 }}>{m.display_name}</div>
+                      <div style={{ fontSize: 9, color: C.text3, marginTop: 2, textTransform: "capitalize" }}>{m.provider === "google" ? "Google" : "Anthropic"}</div>
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+
+            {/* Actions */}
+            <div style={{ display: "flex", gap: 10 }}>
+              <button onClick={() => { setShowCreateDialog(false); setPendingFiles([]); }}
+                style={{ flex: 1, padding: "10px 0", background: "transparent", border: `1px solid ${C.border}`, borderRadius: 8, color: C.text2, cursor: "pointer", fontSize: 13, fontWeight: 600, fontFamily: F.sans }}>
+                Cancel
+              </button>
+              <button onClick={handleCreateProject}
+                style={{ flex: 1, padding: "10px 0", background: C.green, border: "none", borderRadius: 8, color: "#111", cursor: "pointer", fontSize: 13, fontWeight: 700, fontFamily: F.sans }}>
+                Start Analysis
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* ── Analysing overlay ── */}
