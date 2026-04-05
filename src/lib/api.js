@@ -39,9 +39,10 @@ export const api = {
     return res.json();
   },
 
-  async processProject(token, projectId, model) {
+  async processProject(token, projectId, model, ocrEngine) {
     const url = new URL(`${BASE}/projects/${projectId}/process`);
     if (model) url.searchParams.set("model", model);
+    if (ocrEngine) url.searchParams.set("ocr_engine", ocrEngine);
     const res = await fetch(url.toString(), {
       method: "POST",
       headers: authHeaders(token),

@@ -95,6 +95,7 @@ export default function TenderIQ() {
   const [createDialogName, setCreateDialogName] = useState("");
   const [createDialogType, setCreateDialogType] = useState("commercial");
   const [createDialogModel, setCreateDialogModel] = useState("claude-opus-4");
+  const [createDialogOcr, setCreateDialogOcr] = useState("auto");
   const [chatModel, setChatModel] = useState("claude-opus-4");
   const [pendingFiles, setPendingFiles] = useState([]);
   const [availableModels, setAvailableModels] = useState([]);
@@ -261,6 +262,7 @@ export default function TenderIQ() {
     const projectName = createDialogName.trim() || "Untitled Project";
     const projectType = createDialogType;
     const modelKey = createDialogModel;
+    const ocrEngine = createDialogOcr;
     const uploadedFiles = pendingFiles;
     setShowCreateDialog(false);
     setPendingFiles([]);
@@ -273,7 +275,7 @@ export default function TenderIQ() {
       try {
         const created = await api.createProject(token, projectName, "", uploadedFiles, projectType);
         const pid = created.project_id;
-        await api.processProject(token, pid, modelKey);
+        await api.processProject(token, pid, modelKey, ocrEngine);
         setCurrentProjectId(pid);
         setCurrentProjectName(projectName);
         setCurrentProjectType(projectType);
@@ -897,6 +899,28 @@ export default function TenderIQ() {
                 </div>
               </>
             )}
+
+            {/* OCR Engine (for scanned pages & drawings) */}
+            <label style={{ fontSize: 11, fontWeight: 600, color: C.text2, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8, display: "block" }}>OCR Engine</label>
+            <div style={{ display: "flex", gap: 8, marginBottom: 24, flexWrap: "wrap" }}>
+              {[
+                { value: "auto", label: "Auto", desc: "Fast + accurate" },
+                { value: "mistral", label: "Mistral", desc: "Fastest" },
+                { value: "gemini", label: "Gemini", desc: "Best drawings" },
+              ].map(opt => (
+                <button key={opt.value}
+                  onClick={() => setCreateDialogOcr(opt.value)}
+                  style={{
+                    flex: "1 1 auto", minWidth: 90, padding: "10px 10px", textAlign: "center",
+                    background: createDialogOcr === opt.value ? "rgba(139,197,63,0.1)" : C.bg,
+                    border: `2px solid ${createDialogOcr === opt.value ? C.green : C.border}`,
+                    borderRadius: 10, cursor: "pointer", transition: "all 0.15s", fontFamily: F.sans,
+                  }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: createDialogOcr === opt.value ? C.text1 : C.text2 }}>{opt.label}</div>
+                  <div style={{ fontSize: 9, color: C.text3, marginTop: 2 }}>{opt.desc}</div>
+                </button>
+              ))}
+            </div>
 
             {/* Actions */}
             <div style={{ display: "flex", gap: 10 }}>
