@@ -29,6 +29,8 @@ export function useParameterStream(projectId, enabled = true) {
   const [processingStatus, setProcessingStatus] = useState(null);
   const [lastUpdatedKey, setLastUpdatedKey] = useState(null);
   const [status, setStatus] = useState("idle"); // idle | connecting | open | done | error
+  // Per-pass telemetry: { pass_number, is_final, updated_count, new_count, total_found, duration_ms }
+  const [passes, setPasses] = useState([]);
 
   // Track which params were just flipped, so UI can flash them briefly.
   const [flashingKeys, setFlashingKeys] = useState(new Set());
@@ -135,6 +137,7 @@ export function useParameterStream(projectId, enabled = true) {
             ? `Final pass complete · ${data.total_found || 0} parameters found`
             : `Pass ${data.pass_number} complete · ${data.total_found || 0} parameters found`
         );
+        setPasses((prev) => [...prev, data]);
       } catch {}
     });
 
@@ -176,5 +179,6 @@ export function useParameterStream(projectId, enabled = true) {
     status,
     lastUpdatedKey,
     flashingKeys,
+    passes,
   };
 }

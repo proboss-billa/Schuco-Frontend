@@ -65,6 +65,8 @@ function mergeWithRequired(extracted, projectType = "commercial") {
         sourceText: isActuallyFound ? (found.source_text || null) : null,
         multiSource: isActuallyFound ? (found.multi_source || false) : false,
         available: isActuallyFound,
+        changeCount: found.change_count || 0,
+        lifecycleStatus: found.lifecycle_status || null,
       };
     }
     return {
@@ -173,6 +175,7 @@ export default function ResultsPanel({ token, projectId, projectName, onClose, i
   const [error, setError] = useState("");
   const [expandedIdx, setExpandedIdx] = useState(null);
   const [popup, setPopup] = useState(null);
+  const [popupHistory, setPopupHistory] = useState(null); // { loading, sources, history, error }
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [showDocs, setShowDocs] = useState(false);
   const exportRef = useRef(null);
@@ -357,6 +360,36 @@ export default function ResultsPanel({ token, projectId, projectName, onClose, i
     stream.documents,
     projectType,
   ]);
+
+  // Fetch structured sources + history when the popup opens for a row that
+  // has change history (lifecycle re-extractions). Cleared when popup closes.
+  useEffect(() => {
+    if (!popup || !popup.key || !projectId) {
+      setPopupHistory(null);
+      return;
+    }
+    if (!(popup.changeCount > 0)) {
+      setPopupHistory(null);
+      return;
+    }
+    let cancelled = false;
+    setPopupHistory({ loading: true, history: [], sources: [], error: null });
+    api.getParameterSources(token, projectId, popup.key)
+      .then((data) => {
+        if (cancelled) return;
+        setPopupHistory({
+          loading: false,
+          history: Array.isArray(data.history) ? data.history : [],
+          sources: Array.isArray(data.sources) ? data.sources : [],
+          error: null,
+        });
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setPopupHistory({ loading: false, history: [], sources: [], error: err.message });
+      });
+    return () => { cancelled = true; };
+  }, [popup, projectId, token]);
 
   const handleReExtract = async () => {
     if (reExtracting || polling) return;
@@ -759,6 +792,21 @@ export default function ResultsPanel({ token, projectId, projectName, onClose, i
               <div style={{ width: 8, height: 8, borderRadius: "50%", background: C.text3 }} />
               <span style={{ color: C.text2 }}><strong style={{ color: C.text1 }}>{params.length - found.length}</strong> Not Available</span>
             </div>
+            {/* Streaming telemetry: how many incremental passes have run */}
+            {stream?.passes?.length > 0 && (
+              <div
+                title={stream.passes.map(p =>
+                  `Pass ${p.pass_number}${p.is_final ? " (final)" : ""}: ${p.updated_count || 0} updated · ${p.total_found || 0} total · ${((p.duration_ms || 0) / 1000).toFixed(1)}s`
+                ).join("\n")}
+                style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: C.text3, paddingLeft: 10, borderLeft: `1px solid ${C.border}` }}>
+                <span style={{ fontSize: 10 }}>⟳</span>
+                <span>
+                  <strong style={{ color: C.text2 }}>{stream.passes.length}</strong> pass{stream.passes.length !== 1 ? "es" : ""}
+                  {" · "}
+                  {(stream.passes.reduce((s, p) => s + (p.duration_ms || 0), 0) / 1000).toFixed(1)}s
+                </span>
+              </div>
+            )}
           </div>
           {/* Model selector + Re-extract */}
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -1236,6 +1284,52 @@ export default function ResultsPanel({ token, projectId, projectName, onClose, i
                 <div style={{ fontSize: 11, color: C.text2, lineHeight: 1.65, padding: "9px 11px", background: C.bg, borderRadius: 7, border: `1px solid ${C.border}`, whiteSpace: "pre-wrap", marginBottom: 10 }}>
                   {popup.notes}
                 </div>
+              )}
+              {/* Change history — shown when the parameter has been re-extracted
+                  one or more times during streaming. Fetched on popup open. */}
+              {popup.changeCount > 0 && (
+                <details style={{ marginBottom: 10 }} open>
+                  <summary style={{ fontSize: 10, color: C.text3, cursor: "pointer", userSelect: "none", fontWeight: 600, letterSpacing: "0.04em", textTransform: "uppercase" }}>
+                    Change History · {popup.changeCount} revision{popup.changeCount !== 1 ? "s" : ""} ▸
+                  </summary>
+                  <div style={{ marginTop: 6, padding: "8px 10px", background: C.bg, borderRadius: 7, border: `1px solid ${C.border}` }}>
+                    {popupHistory?.loading && (
+                      <div style={{ fontSize: 10, color: C.text3, fontStyle: "italic" }}>Loading history…</div>
+                    )}
+                    {popupHistory?.error && (
+                      <div style={{ fontSize: 10, color: C.err }}>Failed to load history: {popupHistory.error}</div>
+                    )}
+                    {popupHistory && !popupHistory.loading && !popupHistory.error && popupHistory.history.length === 0 && (
+                      <div style={{ fontSize: 10, color: C.text3, fontStyle: "italic" }}>No previous revisions recorded.</div>
+                    )}
+                    {popupHistory && !popupHistory.loading && popupHistory.history.length > 0 && (
+                      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                        {popupHistory.history.slice().reverse().map((h, idx) => {
+                          const confPct = h.confidence != null
+                            ? Math.round(h.confidence * (h.confidence > 1 ? 1 : 100))
+                            : null;
+                          const when = h.at ? new Date(h.at).toLocaleString() : null;
+                          return (
+                            <div key={idx} style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "5px 0", borderTop: idx > 0 ? `1px dashed ${C.border}` : "none" }}>
+                              <div style={{ fontSize: 9, color: C.text3, minWidth: 14, textAlign: "right", paddingTop: 1 }}>#{popupHistory.history.length - idx}</div>
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ fontSize: 11, color: C.text1, fontFamily: F.mono, wordBreak: "break-word" }}>
+                                  {h.value ?? <span style={{ color: C.text3, fontStyle: "italic" }}>(empty)</span>}
+                                </div>
+                                {when && <div style={{ fontSize: 9, color: C.text3, marginTop: 1 }}>{when}</div>}
+                              </div>
+                              {confPct != null && (
+                                <span style={{ fontSize: 9, fontWeight: 700, color: confidenceColor(confPct), background: `${confidenceColor(confPct)}14`, padding: "2px 6px", borderRadius: 4, flexShrink: 0 }}>
+                                  {confPct}%
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </details>
               )}
               {/* Source evidence text */}
               {popup.sourceText && (

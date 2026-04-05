@@ -96,6 +96,7 @@ export default function TenderIQ() {
   const [createDialogType, setCreateDialogType] = useState("commercial");
   const [createDialogModel, setCreateDialogModel] = useState("claude-opus-4");
   const [createDialogOcr, setCreateDialogOcr] = useState("auto");
+  const [createDialogStreaming, setCreateDialogStreaming] = useState(true);
   const [chatModel, setChatModel] = useState("claude-opus-4");
   const [pendingFiles, setPendingFiles] = useState([]);
   const [availableModels, setAvailableModels] = useState([]);
@@ -263,6 +264,7 @@ export default function TenderIQ() {
     const projectType = createDialogType;
     const modelKey = createDialogModel;
     const ocrEngine = createDialogOcr;
+    const streamingExtraction = createDialogStreaming;
     const uploadedFiles = pendingFiles;
     setShowCreateDialog(false);
     setPendingFiles([]);
@@ -273,7 +275,7 @@ export default function TenderIQ() {
 
     runTypingAnimation(async () => {
       try {
-        const created = await api.createProject(token, projectName, "", uploadedFiles, projectType);
+        const created = await api.createProject(token, projectName, "", uploadedFiles, projectType, streamingExtraction);
         const pid = created.project_id;
         await api.processProject(token, pid, modelKey, ocrEngine);
         setCurrentProjectId(pid);
@@ -917,6 +919,27 @@ export default function TenderIQ() {
                     borderRadius: 10, cursor: "pointer", transition: "all 0.15s", fontFamily: F.sans,
                   }}>
                   <div style={{ fontSize: 12, fontWeight: 700, color: createDialogOcr === opt.value ? C.text1 : C.text2 }}>{opt.label}</div>
+                  <div style={{ fontSize: 9, color: C.text3, marginTop: 2 }}>{opt.desc}</div>
+                </button>
+              ))}
+            </div>
+
+            {/* Streaming extraction toggle — shows parameters as each doc indexes */}
+            <label style={{ fontSize: 11, fontWeight: 600, color: C.text2, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8, display: "block" }}>Extraction mode</label>
+            <div style={{ display: "flex", gap: 8, marginBottom: 24, flexWrap: "wrap" }}>
+              {[
+                { value: true,  label: "Streaming", desc: "See results as docs index" },
+                { value: false, label: "Batch",     desc: "Wait, then extract once" },
+              ].map(opt => (
+                <button key={String(opt.value)}
+                  onClick={() => setCreateDialogStreaming(opt.value)}
+                  style={{
+                    flex: "1 1 auto", minWidth: 120, padding: "10px 10px", textAlign: "center",
+                    background: createDialogStreaming === opt.value ? "rgba(139,197,63,0.1)" : C.bg,
+                    border: `2px solid ${createDialogStreaming === opt.value ? C.green : C.border}`,
+                    borderRadius: 10, cursor: "pointer", transition: "all 0.15s", fontFamily: F.sans,
+                  }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: createDialogStreaming === opt.value ? C.text1 : C.text2 }}>{opt.label}</div>
                   <div style={{ fontSize: 9, color: C.text3, marginTop: 2 }}>{opt.desc}</div>
                 </button>
               ))}

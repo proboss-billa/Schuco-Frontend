@@ -24,17 +24,31 @@ export const api = {
     return res.json();
   },
 
-  async createProject(token, name, description, files, projectType = "commercial") {
+  async createProject(token, name, description, files, projectType = "commercial", streamingExtraction = true) {
     const form = new FormData();
     form.append("project_name", name);
     form.append("project_description", description || "");
     form.append("project_type", projectType || "commercial");
+    form.append("streaming_extraction", streamingExtraction ? "true" : "false");
     files.forEach((f) => form.append("files", f));
     const res = await fetch(`${BASE}/projects/create`, {
       method: "POST",
       headers: authHeaders(token),
       body: form,
     });
+    if (!res.ok) throw new Error(await res.text());
+    return res.json();
+  },
+
+  /**
+   * Fetch structured sources and change-history for a single parameter.
+   * Used by the history popover in ResultsPanel.
+   */
+  async getParameterSources(token, projectId, parameterKey) {
+    const res = await fetch(
+      `${BASE}/projects/${projectId}/parameters/${encodeURIComponent(parameterKey)}/sources`,
+      { headers: authHeaders(token) }
+    );
     if (!res.ok) throw new Error(await res.text());
     return res.json();
   },
