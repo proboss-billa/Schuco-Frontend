@@ -5,11 +5,11 @@ import { api } from "@/lib/api";
 import ProfileScreen from "@/components/ProfileScreen";
 import AuthScreen from "@/components/AuthScreen";
 import ResultsPanel from "@/components/ResultsPanel";
-import { ChatCtxMenu, RenameModal, DeleteModal } from "@/components/Modals";
+import { ChatCtxMenu, RenameModal, DeleteModal, DeleteDocumentsModal } from "@/components/Modals";
 import {
   SchucoMark, SendIcon, UploadIcon, FileIcon, ChatIcon,
   PlusIcon, MenuIcon, CloseIcon, PanelIcon, MoreIcon,
-  LogoutIcon, ChevronLeftIcon,
+  ChevronLeftIcon,
 } from "@/components/Icons";
 
 // ── Typing indicator ────────────────────────────────
@@ -90,6 +90,9 @@ export default function TenderIQ() {
   const [currentProjectName, setCurrentProjectName] = useState("");
   const [currentProjectType, setCurrentProjectType] = useState("commercial");
   const [chats, setChats] = useState([]);
+  const [sidebarFilter, setSidebarFilter] = useState("all"); // "all" | "favourites" | "archived"
+  const [multiSelect, setMultiSelect] = useState(false);
+  const [selectedChats, setSelectedChats] = useState(new Set());
   // Project creation dialog state
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [createDialogName, setCreateDialogName] = useState("");
@@ -100,32 +103,58 @@ export default function TenderIQ() {
   // Keep state for API shape but force to false so the flag is a no-op.
   const [createDialogStreaming, setCreateDialogStreaming] = useState(false);
   const [chatModel, setChatModel] = useState("gemini-3-flash");
+  const [isProcessing, setIsProcessing] = useState(false);
+  const wasProcessingRef = useRef(false);
+  const [uploadTrigger, setUploadTrigger] = useState(0);
   const [pendingFiles, setPendingFiles] = useState([]);
   const [availableModels, setAvailableModels] = useState([]);
   const [chatCounts, setChatCounts] = useState({});
+  const [errorPopup, setErrorPopup] = useState(null); // { title, message }
+  const [avatarUrl, setAvatarUrl] = useState(null);
   const fileRef = useRef(null);
+
+  // When processing transitions from true → false, notify in chat
+  const handleProcessingChange = useCallback((processing) => {
+    if (wasProcessingRef.current && !processing) {
+      setMsgs(prev => [...prev, {
+        role: "assistant", type: "text",
+        content: "**Processing complete!** Your parameters have been extracted. Check the results panel on the right, or ask me anything about the tender documents.",
+      }]);
+    }
+    wasProcessingRef.current = processing;
+    setIsProcessing(processing);
+  }, []);
   const chatEnd = useRef(null);
   const dragState = useRef(null);
 
-  // Auto-login with default credentials
+  // Restore token from localStorage on mount
   useEffect(() => {
-    api.login("abc@sooru.ai", "12345678")
-      .then(data => {
-        setToken(data.access_token);
-        setScreen("main");
-        api.listProjects(data.access_token).then(projects => {
-          if (Array.isArray(projects) && projects.length > 0) {
-            setChats(projects.map(p => ({
-              id: p.project_id || p.id,
-              title: p.project_name || p.name || "Untitled",
-              type: p.project_type || "commercial",
-              date: p.created_at || "",
-              updated: p.updated_at || p.created_at || "",
-            })));
-          }
+    const savedToken = localStorage.getItem("tiq_token");
+    if (savedToken) {
+      api.getMe(savedToken)
+        .then(userData => {
+          setToken(savedToken);
+          setUser(userData);
+          if (userData.has_avatar) setAvatarUrl(api.getAvatarUrl(savedToken));
+          setScreen("main");
+          api.listProjects(savedToken).then(projects => {
+            if (Array.isArray(projects) && projects.length > 0) {
+              setChats(projects.map(p => ({
+                id: p.project_id || p.id,
+                title: p.project_name || p.name || "Untitled",
+                type: p.project_type || "commercial",
+                is_starred: p.is_starred || false,
+                is_archived: p.is_archived || false,
+                date: p.created_at || "",
+                updated: p.updated_at || p.created_at || "",
+              })));
+            }
+          });
+        })
+        .catch(() => {
+          localStorage.removeItem("tiq_token");
         });
-      })
-      .catch(() => {}); // fall through to login screen if it fails
+    }
     // Fetch available models
     api.getModels().then(data => {
       setAvailableModels(data.models || []);
@@ -228,18 +257,20 @@ export default function TenderIQ() {
     const newMsgs = [...msgs, userMsg];
     setMsgs(newMsgs);
 
-    if (uploadedFiles.length > 0) {
-      // Show project creation dialog instead of immediately processing
+    if (uploadedFiles.length > 0 && currentProjectId) {
+      // Upload to existing project
+      handleUploadMore(uploadedFiles);
+      return;
+    } else if (uploadedFiles.length > 0) {
+      // Show project creation dialog for new project
       const defaultName = userText || uploadedFiles[0].name.replace(/\.[^/.]+$/, "");
       setPendingFiles(uploadedFiles);
       setCreateDialogName(defaultName);
-      // Try to auto-detect type from filename keywords
       const allNames = uploadedFiles.map(f => f.name.toLowerCase()).join(" ");
       const residentialHints = ["residential", "villa", "apartment", "flat", "house", "dwelling", "home", "tower", "floor"];
       const isResidential = residentialHints.some(kw => allNames.includes(kw));
       setCreateDialogType(isResidential ? "residential" : "commercial");
       setShowCreateDialog(true);
-      // Store current msgs for later continuation
       return;
     } else if (currentProjectId) {
       // Chat with existing project
@@ -252,7 +283,11 @@ export default function TenderIQ() {
           sources: sources.map(s => `${s.document}${s.page ? ` · Page ${s.page}` : ""}${s.section ? ` · ${s.section}` : ""}`),
         }]);
       } catch (e) {
-        setMsgs([...newMsgs, { role: "assistant", type: "text", content: `Query failed: ${e.message}` }]);
+        const isOutOfCredits = e.message === "OUT_OF_CREDITS";
+        const content = isOutOfCredits
+          ? "**You are out of Credits**\n\nPlease contact:\n\n**Michael Stanley**\nmike@sooru.ai\n+91 97427 24935\n\nOr\n\n**Brijesh Shivakumar**\nbrijesh@sooru.ai\n+91 97438 10910"
+          : `Query failed: ${e.message}`;
+        setMsgs([...newMsgs, { role: "assistant", type: "text", content }]);
       }
     } else {
       // No project loaded — guide user
@@ -280,6 +315,7 @@ export default function TenderIQ() {
         const created = await api.createProject(token, projectName, "", uploadedFiles, projectType, streamingExtraction);
         const pid = created.project_id;
         await api.processProject(token, pid, modelKey, ocrEngine);
+        wasProcessingRef.current = true;
         setCurrentProjectId(pid);
         setCurrentProjectName(projectName);
         setCurrentProjectType(projectType);
@@ -290,11 +326,56 @@ export default function TenderIQ() {
           content: `I've analyzed **${projectName}** (${typeLabel}) and extracted the key parameters. You can see the structured results in the side panel.\n\nWhat would you like to dive deeper into?`,
         };
         setMsgs([...newMsgs, assistantMsg]);
-        setChats(prev => [{ id: pid, title: projectName, type: projectType, date: "Today", updated: "Just now" }, ...prev]);
+        setChats(prev => [{ id: pid, title: projectName, type: projectType, is_starred: false, is_archived: false, date: "Today", updated: "Just now" }, ...prev]);
       } catch (e) {
-        setMsgs([...newMsgs, { role: "assistant", type: "text", content: `Error during analysis: ${e.message}` }]);
+        const isOutOfCredits = e.message === "OUT_OF_CREDITS";
+        const content = isOutOfCredits
+          ? "**You are out of Credits**\n\nPlease contact:\n\n**Michael Stanley**\nmike@sooru.ai\n+91 97427 24935\n\nOr\n\n**Brijesh Shivakumar**\nbrijesh@sooru.ai\n+91 97438 10910"
+          : `Error during analysis: ${e.message}`;
+        setMsgs([...newMsgs, { role: "assistant", type: "text", content }]);
       }
     });
+  };
+
+  // ── Upload more files to existing project ──
+  const handleUploadMore = async (newFiles) => {
+    if (!currentProjectId || !newFiles?.length) return;
+    wasProcessingRef.current = true;
+    setIsProcessing(true);
+    try {
+      const res = await api.uploadFiles(token, currentProjectId, Array.from(newFiles));
+      setMsgs(prev => [...prev, {
+        role: "assistant", type: "text",
+        content: `Uploaded ${res.documents_uploaded} new file(s). Processing...`,
+      }]);
+      await api.processProject(token, currentProjectId);
+      // Force ResultsPanel to re-poll
+      setUploadTrigger(k => k + 1);
+    } catch (e) {
+      setIsProcessing(false);
+      if (e.message === "OUT_OF_CREDITS") {
+        setMsgs(prev => [...prev, {
+          role: "assistant", type: "text",
+          content: "**You are out of Credits**\n\nPlease contact:\n\n**Michael Stanley**\nmike@sooru.ai\n+91 97427 24935\n\nOr\n\n**Brijesh Shivakumar**\nbrijesh@sooru.ai\n+91 97438 10910",
+        }]);
+      } else if (e.message.startsWith("ARCHIVED:")) {
+        const fileNames = e.message.replace(/^ARCHIVED:/, "");
+        setErrorPopup({ type: "archived", fileNames });
+        setMsgs(prev => [...prev, {
+          role: "assistant", type: "text",
+          content: `The file(s) **${fileNames}** ${fileNames.includes(",") ? "are" : "is"} already in your **Archived** folder. You can restore ${fileNames.includes(",") ? "them" : "it"} from the Archived section in the parameters panel instead of re-uploading.`,
+        }]);
+      } else if (e.message.startsWith("Duplicate file(s)")) {
+        const fileNames = e.message.replace(/^Duplicate file\(s\) already in this project:\s*/, "");
+        setErrorPopup({ type: "duplicate", fileNames });
+        setMsgs(prev => [...prev, {
+          role: "assistant", type: "text",
+          content: `The file(s) **${fileNames}** already exist in this project and have been scanned for parameters. Try uploading different files, or delete the existing ones and try again.`,
+        }]);
+      } else {
+        setErrorPopup({ type: "generic", message: e.message });
+      }
+    }
   };
 
   // Persist chat messages to localStorage whenever they change
@@ -365,11 +446,73 @@ export default function TenderIQ() {
     setCurrentProjectType("commercial");
     setShowCreateDialog(false);
     setPendingFiles([]);
+    setMultiSelect(false);
+    setSelectedChats(new Set());
   };
 
+  const handleStar = async (chatId) => {
+    try {
+      const res = await api.toggleStar(token, chatId);
+      setChats(prev => prev.map(c => c.id === chatId ? { ...c, is_starred: res.is_starred } : c));
+    } catch (e) { console.error("Star failed:", e); }
+  };
+
+  const handleArchive = async (chatId) => {
+    try {
+      await api.toggleArchive(token, chatId);
+      setChats(prev => prev.map(c => c.id === chatId ? { ...c, is_archived: true, is_starred: false } : c));
+      if (currentProjectId === chatId) newAnalysis();
+    } catch (e) { console.error("Archive failed:", e); }
+  };
+
+  const handleUnarchive = async (chatId) => {
+    try {
+      await api.toggleArchive(token, chatId);
+      setChats(prev => prev.map(c => c.id === chatId ? { ...c, is_archived: false } : c));
+    } catch (e) { console.error("Unarchive failed:", e); }
+  };
+
+  const handleBulkAction = async (action) => {
+    const ids = Array.from(selectedChats);
+    if (!ids.length) return;
+    try {
+      if (action === "delete") {
+        await api.bulkUpdateProjects(token, ids, "delete");
+        setChats(prev => prev.filter(c => !selectedChats.has(c.id)));
+        if (selectedChats.has(currentProjectId)) newAnalysis();
+      } else if (action === "archive") {
+        await api.bulkUpdateProjects(token, ids, "archive");
+        setChats(prev => prev.map(c => selectedChats.has(c.id) ? { ...c, is_archived: true, is_starred: false } : c));
+        if (selectedChats.has(currentProjectId)) newAnalysis();
+      } else if (action === "unarchive") {
+        await api.bulkUpdateProjects(token, ids, "unarchive");
+        setChats(prev => prev.map(c => selectedChats.has(c.id) ? { ...c, is_archived: false } : c));
+      } else if (action === "star") {
+        await api.bulkUpdateProjects(token, ids, "star");
+        setChats(prev => prev.map(c => selectedChats.has(c.id) ? { ...c, is_starred: true } : c));
+      } else if (action === "unstar") {
+        await api.bulkUpdateProjects(token, ids, "unstar");
+        setChats(prev => prev.map(c => selectedChats.has(c.id) ? { ...c, is_starred: false } : c));
+      }
+    } catch (e) { console.error("Bulk action failed:", e); }
+    setMultiSelect(false);
+    setSelectedChats(new Set());
+  };
+
+  const filteredChats = chats.filter(c => {
+    if (sidebarFilter === "favourites") return c.is_starred && !c.is_archived;
+    if (sidebarFilter === "archived") return c.is_archived;
+    return !c.is_archived;
+  });
+
   // ── Auth screen ──
-  const handleLogin = (accessToken) => {
+  const handleLogin = (accessToken, userData) => {
+    localStorage.setItem("tiq_token", accessToken);
     setToken(accessToken);
+    if (userData) {
+      setUser(userData);
+      if (userData.has_avatar) setAvatarUrl(api.getAvatarUrl(accessToken));
+    }
     setScreen("main");
     // Load project history after login
     api.listProjects(accessToken).then(projects => {
@@ -378,6 +521,8 @@ export default function TenderIQ() {
           id: p.project_id || p.id,
           title: p.project_name || p.name || "Untitled",
           type: p.project_type || "commercial",
+          is_starred: p.is_starred || false,
+          is_archived: p.is_archived || false,
           date: p.created_at || "",
           updated: p.updated_at || p.created_at || "",
         })));
@@ -385,12 +530,14 @@ export default function TenderIQ() {
     });
   };
 
+  const logout = () => { localStorage.removeItem("tiq_token"); setToken(null); setUser(null); setAvatarUrl(null); setScreen("auth"); setChats([]); newAnalysis(); };
+
   if (screen === "auth") return <AuthScreen onLogin={handleLogin} />;
 
   // ── Profile screen ──
   if (screen === "profile") return (
     <div style={{ minHeight: "100vh", background: C.bg }}>
-      <ProfileScreen user={user} onBack={() => setScreen("main")} />
+      <ProfileScreen user={user} token={token} avatarUrl={avatarUrl} onAvatarChange={setAvatarUrl} onBack={() => setScreen("main")} onLogout={logout} onDeleteAccount={async () => { await api.deleteAccount(token); logout(); }} />
     </div>
   );
 
@@ -399,7 +546,17 @@ export default function TenderIQ() {
   const SIDE_W = 258;
   const SIDE_MINI = 64;
   const sidebarW = sideOpen ? SIDE_W : SIDE_MINI;
-  const logout = () => { setToken(null); setScreen("auth"); setChats([]); newAnalysis(); };
+
+  // Compute initials: first letter of first name + first letter of last name, or first letter of email
+  const getInitials = (u) => {
+    if (!u) return "?";
+    if (u.name) {
+      const parts = u.name.trim().split(/\s+/);
+      if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+      return parts[0][0].toUpperCase();
+    }
+    return (u.email || "?")[0].toUpperCase();
+  };
 
   const iconBtn = (onClick, title, children, danger = false) => (
     <button onClick={onClick} title={title}
@@ -481,33 +638,85 @@ export default function TenderIQ() {
         </div>
 
         {/* ── Chats ── */}
-        <div style={{ flex: 1, overflowY: "auto", padding: sideOpen ? "4px 8px" : "4px 0" }}>
+        <div style={{ flex: 1, overflowY: "auto", padding: sideOpen ? "4px 8px" : "4px 0", display: "flex", flexDirection: "column" }}>
           {sideOpen ? (
             <>
-              <div style={{ fontSize: 10, fontWeight: 600, color: C.text3, padding: "6px 8px 5px", letterSpacing: "0.1em", textTransform: "uppercase" }}>Recent</div>
-              {chats.length === 0 && <div style={{ padding: "10px 8px", fontSize: 12, color: C.text3 }}>No analyses yet</div>}
-              {chats.map(chat => {
+              {/* Filter dropdown row */}
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "6px 8px 5px" }}>
+                <select
+                  value={sidebarFilter}
+                  onChange={e => { setSidebarFilter(e.target.value); setMultiSelect(false); setSelectedChats(new Set()); }}
+                  style={{ fontSize: 10, fontWeight: 600, color: C.text3, background: "transparent", border: "none", cursor: "pointer", textTransform: "uppercase", letterSpacing: "0.1em", fontFamily: F.sans, outline: "none", padding: 0 }}>
+                  <option value="all" style={{ background: C.navyDark, color: C.text2 }}>All Projects</option>
+                  <option value="favourites" style={{ background: C.navyDark, color: C.text2 }}>Favourites</option>
+                  <option value="archived" style={{ background: C.navyDark, color: C.text2 }}>Archived</option>
+                </select>
+              </div>
+
+              {/* Multi-select action bar */}
+              {multiSelect && selectedChats.size > 0 && (
+                <div style={{ display: "flex", alignItems: "center", gap: 4, padding: "4px 8px 6px", flexWrap: "wrap" }}>
+                  <span style={{ fontSize: 10, color: C.text2, fontWeight: 600 }}>{selectedChats.size} selected</span>
+                  <div style={{ flex: 1 }} />
+                  {sidebarFilter === "archived" ? (<>
+                    <button onClick={() => handleBulkAction("unarchive")} style={{ fontSize: 9, padding: "3px 8px", background: C.greenSubtle, border: `1px solid ${C.greenBorder}`, borderRadius: 4, color: C.green, cursor: "pointer", fontWeight: 600, fontFamily: F.sans }}>Restore</button>
+                    <button onClick={() => handleBulkAction("delete")} style={{ fontSize: 9, padding: "3px 8px", background: "rgba(255,90,90,0.08)", border: "1px solid rgba(255,90,90,0.2)", borderRadius: 4, color: C.err, cursor: "pointer", fontWeight: 600, fontFamily: F.sans }}>Delete</button>
+                  </>) : sidebarFilter === "favourites" ? (<>
+                    <button onClick={() => handleBulkAction("unstar")} style={{ fontSize: 9, padding: "3px 8px", background: "rgba(255,179,64,0.08)", border: "1px solid rgba(255,179,64,0.2)", borderRadius: 4, color: "#FFB340", cursor: "pointer", fontWeight: 600, fontFamily: F.sans }}>Remove</button>
+                  </>) : (<>
+                    <button onClick={() => handleBulkAction("star")} style={{ fontSize: 9, padding: "3px 8px", background: "rgba(255,179,64,0.08)", border: "1px solid rgba(255,179,64,0.2)", borderRadius: 4, color: "#FFB340", cursor: "pointer", fontWeight: 600, fontFamily: F.sans }}>Favourite</button>
+                    <button onClick={() => handleBulkAction("archive")} style={{ fontSize: 9, padding: "3px 8px", background: C.bg2, border: `1px solid ${C.border}`, borderRadius: 4, color: C.text2, cursor: "pointer", fontWeight: 600, fontFamily: F.sans }}>Archive</button>
+                  </>)}
+                  <button onClick={() => { setMultiSelect(false); setSelectedChats(new Set()); }} style={{ fontSize: 9, padding: "3px 6px", background: "none", border: "none", color: C.text3, cursor: "pointer", fontFamily: F.sans }}>Cancel</button>
+                </div>
+              )}
+
+              {filteredChats.length === 0 && <div style={{ padding: "10px 8px", fontSize: 12, color: C.text3 }}>
+                {sidebarFilter === "favourites" ? "No favourites yet" : sidebarFilter === "archived" ? "No archived projects" : "No analyses yet"}
+              </div>}
+              {filteredChats.map(chat => {
                 const isComm = (chat.type || "commercial") === "commercial";
                 const typeBadge = isComm ? "C" : "R";
                 const typeBg = isComm ? "rgba(74,158,255,0.15)" : "rgba(0,196,140,0.15)";
                 const typeColor = isComm ? "#4A9EFF" : "#00C48C";
+                const isSelected = selectedChats.has(chat.id);
                 const fmtDate = (d) => {
                   if (!d) return "";
                   try { const dt = new Date(d); return dt.toLocaleDateString("en-IN", { day: "2-digit", month: "short" }) + " " + dt.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: false }); } catch { return ""; }
                 };
                 return (
                 <div key={chat.id} style={{ position: "relative", marginBottom: 2 }}>
-                  <button onClick={() => openChat(chat)} onContextMenu={e => handleCtx(e, chat)}
-                    style={{ width: "100%", padding: "8px 28px 8px 10px", background: currentProjectId === chat.id ? C.bg2 : "transparent", border: "none", borderRadius: 7, color: currentProjectId === chat.id ? C.text1 : C.text2, cursor: "pointer", textAlign: "left", fontFamily: F.sans, fontSize: 12, display: "flex", alignItems: "flex-start", gap: 8, transition: "all 0.1s" }}
-                    onMouseEnter={e => { if (currentProjectId !== chat.id) { e.currentTarget.style.background = C.bg2; e.currentTarget.style.color = C.text1; } }}
-                    onMouseLeave={e => { if (currentProjectId !== chat.id) { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = C.text2; } }}>
-                    <div style={{ position: "relative", flexShrink: 0, marginTop: 2 }}>
-                      <ChatIcon />
+                  <button
+                    onClick={() => {
+                      if (multiSelect) {
+                        setSelectedChats(prev => { const next = new Set(prev); if (next.has(chat.id)) next.delete(chat.id); else next.add(chat.id); return next; });
+                      } else if (!chat.is_archived) {
+                        openChat(chat);
+                      }
+                    }}
+                    onContextMenu={e => handleCtx(e, chat)}
+                    style={{ width: "100%", padding: "8px 28px 8px 10px", background: isSelected ? "rgba(139,197,63,0.08)" : currentProjectId === chat.id ? C.bg2 : "transparent", border: isSelected ? `1px solid rgba(139,197,63,0.2)` : "1px solid transparent", borderRadius: 7, color: currentProjectId === chat.id ? C.text1 : C.text2, cursor: "pointer", textAlign: "left", fontFamily: F.sans, fontSize: 12, display: "flex", alignItems: "flex-start", gap: 8, transition: "all 0.1s" }}
+                    onMouseEnter={e => { if (!isSelected && currentProjectId !== chat.id) { e.currentTarget.style.background = C.bg2; e.currentTarget.style.color = C.text1; } }}
+                    onMouseLeave={e => { if (!isSelected && currentProjectId !== chat.id) { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = C.text2; } }}>
+                    <div
+                      style={{ position: "relative", flexShrink: 0, marginTop: 2, cursor: "pointer" }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (!multiSelect) { setMultiSelect(true); setSelectedChats(new Set([chat.id])); }
+                        else { setSelectedChats(prev => { const next = new Set(prev); if (next.has(chat.id)) next.delete(chat.id); else next.add(chat.id); return next; }); }
+                      }}
+                      title="Select">
+                      {multiSelect ? (
+                        <input type="checkbox" checked={isSelected} readOnly style={{ width: 14, height: 14, accentColor: C.green, cursor: "pointer" }} />
+                      ) : (
+                        <ChatIcon />
+                      )}
                     </div>
                     <div style={{ flex: 1, overflow: "hidden", minWidth: 0 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
                         <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 13, fontWeight: 500 }}>{chat.title}</span>
                         <span style={{ fontSize: 9, fontWeight: 700, padding: "1px 4px", borderRadius: 3, background: typeBg, color: typeColor, flexShrink: 0, letterSpacing: "0.03em" }}>{typeBadge}</span>
+                        {chat.is_starred && <svg width="10" height="10" viewBox="0 0 24 24" fill="#FFB340" stroke="#FFB340" strokeWidth="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>}
                       </div>
                       <div style={{ fontSize: 10, color: C.text3, marginTop: 2, display: "flex", gap: 6 }}>
                         <span title="Created">{fmtDate(chat.date)}</span>
@@ -517,24 +726,38 @@ export default function TenderIQ() {
                       </div>
                     </div>
                   </button>
-                  <button onClick={e => handleCtx(e, chat)}
-                    style={{ position: "absolute", right: 4, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", color: C.text3, cursor: "pointer", padding: 2, opacity: 0.4, transition: "opacity 0.15s" }}
-                    onMouseEnter={e => e.currentTarget.style.opacity = 1}
-                    onMouseLeave={e => e.currentTarget.style.opacity = 0.4}>
-                    <MoreIcon />
-                  </button>
+                  {!multiSelect && (
+                    <button onClick={e => handleCtx(e, chat)}
+                      style={{ position: "absolute", right: 4, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", color: C.text3, cursor: "pointer", padding: 2, opacity: 0.4, transition: "opacity 0.15s" }}
+                      onMouseEnter={e => e.currentTarget.style.opacity = 1}
+                      onMouseLeave={e => e.currentTarget.style.opacity = 0.4}>
+                      <MoreIcon />
+                    </button>
+                  )}
                 </div>
                 );
               })}
             </>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2, paddingTop: 4 }}>
-              {chats.length === 0 && (
+              {/* Collapsed filter selector */}
+              <div style={{ position: "relative", marginBottom: 4 }}>
+                <select
+                  value={sidebarFilter}
+                  onChange={e => { setSidebarFilter(e.target.value); setMultiSelect(false); setSelectedChats(new Set()); }}
+                  style={{ width: 44, height: 28, fontSize: 9, fontWeight: 700, color: C.text3, background: C.bg2, border: `1px solid ${C.border}`, borderRadius: 6, cursor: "pointer", textAlign: "center", fontFamily: F.sans, outline: "none", padding: "0 2px", appearance: "none", WebkitAppearance: "none" }}>
+                  <option value="all">All</option>
+                  <option value="favourites">Fav</option>
+                  <option value="archived">Arc</option>
+                </select>
+                <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke={C.text3} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ position: "absolute", right: 4, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }}><polyline points="6 9 12 15 18 9"/></svg>
+              </div>
+              {filteredChats.length === 0 && (
                 <div style={{ color: C.text3, fontSize: 10, textAlign: "center", padding: "8px 0" }}>—</div>
               )}
-              {chats.map(chat => (
+              {filteredChats.map(chat => (
                 <div key={chat.id} style={{ position: "relative" }}>
-                  <button onClick={() => openChat(chat)} title={chat.title}
+                  <button onClick={() => !chat.is_archived && openChat(chat)} title={chat.title}
                     style={{ width: 40, height: 40, borderRadius: 10, background: currentProjectId === chat.id ? C.bg2 : "transparent", border: currentProjectId === chat.id ? `1px solid ${C.border}` : "none", color: currentProjectId === chat.id ? C.green : C.text3, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.15s" }}
                     onMouseEnter={e => { if (currentProjectId !== chat.id) { e.currentTarget.style.background = C.bg2; e.currentTarget.style.color = C.text2; } }}
                     onMouseLeave={e => { if (currentProjectId !== chat.id) { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = C.text3; } }}>
@@ -546,19 +769,38 @@ export default function TenderIQ() {
           )}
         </div>
 
-        {/* ── Sign Out ── */}
-        <div style={{ padding: sideOpen ? "8px 10px" : "8px 0", borderTop: `1px solid ${C.border}`, display: "flex", justifyContent: "center", flexShrink: 0 }}>
+        {/* ── Profile ── */}
+        <div style={{ padding: sideOpen ? "6px 10px" : "6px 0", borderTop: `1px solid ${C.border}`, display: "flex", justifyContent: "center", flexShrink: 0 }}>
           {sideOpen ? (
-            <button onClick={logout}
-              style={{ width: "100%", padding: "8px 12px", background: "transparent", border: `1px solid ${C.border}`, borderRadius: 8, color: C.text3, cursor: "pointer", fontSize: 12, fontFamily: F.sans, fontWeight: 500, display: "flex", alignItems: "center", gap: 8, transition: "all 0.15s" }}
-              onMouseEnter={e => { e.currentTarget.style.color = C.err; e.currentTarget.style.borderColor = C.err; e.currentTarget.style.background = "rgba(255,90,90,0.06)"; }}
-              onMouseLeave={e => { e.currentTarget.style.color = C.text3; e.currentTarget.style.borderColor = C.border; e.currentTarget.style.background = "transparent"; }}>
-              <LogoutIcon /> Sign Out
+            <button onClick={() => setScreen("profile")}
+              style={{ width: "100%", padding: "8px 10px", background: "transparent", border: "none", borderRadius: 8, color: C.text1, cursor: "pointer", fontSize: 13, fontFamily: F.sans, display: "flex", alignItems: "center", gap: 10, transition: "all 0.15s" }}
+              onMouseEnter={e => e.currentTarget.style.background = C.bg3}
+              onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+              {avatarUrl ? (
+                <img src={avatarUrl} style={{ width: 30, height: 30, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />
+              ) : (
+                <div style={{ width: 30, height: 30, borderRadius: "50%", background: C.green, color: "#111", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, flexShrink: 0 }}>
+                  {getInitials(user)}
+                </div>
+              )}
+              <span style={{ flex: 1, textAlign: "left", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 13, fontWeight: 500 }}>
+                {user?.name || user?.email || "Profile"}
+              </span>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={C.text3} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
             </button>
-          ) : (
-            iconBtn(logout, "Sign Out", <LogoutIcon />, true)
-          )}
+          ) : avatarUrl ? (
+              <button onClick={() => setScreen("profile")} title="Profile"
+                style={{ width: 36, height: 36, borderRadius: "50%", background: "none", border: "none", cursor: "pointer", padding: 0 }}>
+                <img src={avatarUrl} style={{ width: 36, height: 36, borderRadius: "50%", objectFit: "cover" }} />
+              </button>
+            ) : (
+              <button onClick={() => setScreen("profile")} title="Profile"
+                style={{ width: 36, height: 36, borderRadius: "50%", background: C.green, color: "#111", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700 }}>
+                {getInitials(user)}
+              </button>
+            )}
         </div>
+
       </div>
 
       {/* Mobile overlay */}
@@ -572,10 +814,17 @@ export default function TenderIQ() {
             <span style={{ fontSize: 14, fontWeight: 500, color: C.text1 }}>{currentProjectName || (hasContent ? "Analysis" : "New Analysis")}</span>
           </div>
           {currentProjectId && (
-            <button onClick={() => isMob ? setMobResults(true) : setShowResults(true)}
-              style={{ padding: "5px 12px", background: showResults ? C.green : C.greenSubtle, border: `1px solid ${C.greenBorder}`, borderRadius: 6, color: showResults ? "#111" : C.green, cursor: "pointer", fontSize: 12, fontFamily: F.sans, fontWeight: 600, display: "flex", alignItems: "center", gap: 5, transition: "all 0.15s" }}>
-              <PanelIcon /> Results
-            </button>
+            isMob ? (
+              <button onClick={() => setMobResults(true)}
+                style={{ padding: "5px 12px", background: C.greenSubtle, border: `1px solid ${C.greenBorder}`, borderRadius: 6, color: C.green, cursor: "pointer", fontSize: 12, fontFamily: F.sans, fontWeight: 600, display: "flex", alignItems: "center", gap: 5, transition: "all 0.15s" }}>
+                <PanelIcon /> Results
+              </button>
+            ) : (
+              <button onClick={() => setShowResults(v => !v)}
+                style={{ padding: "5px 12px", background: showResults ? C.green : C.greenSubtle, border: `1px solid ${C.greenBorder}`, borderRadius: 6, color: showResults ? "#111" : C.green, cursor: "pointer", fontSize: 12, fontFamily: F.sans, fontWeight: 600, display: "flex", alignItems: "center", gap: 5, transition: "all 0.15s" }}>
+                <PanelIcon /> {showResults ? "Hide Parameters" : "Show Parameters"}
+              </button>
+            )
           )}
         </div>
 
@@ -690,6 +939,14 @@ export default function TenderIQ() {
                       </div>
                     )}
                   </div>
+                  {m.role === "user" && avatarUrl && (
+                    <img src={avatarUrl} style={{ width: 32, height: 32, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />
+                  )}
+                  {m.role === "user" && !avatarUrl && (
+                    <div style={{ width: 32, height: 32, borderRadius: "50%", background: C.green, color: "#111", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, flexShrink: 0 }}>
+                      {getInitials(user)}
+                    </div>
+                  )}
                 </div>
               ))}
 
@@ -699,6 +956,14 @@ export default function TenderIQ() {
 
             {/* Input bar */}
             <div style={{ padding: isMob ? "10px 12px 14px" : "10px 24px 18px", borderTop: hasContent ? `1px solid ${C.border}` : "none", flexShrink: 0 }}>
+              {/* Processing banner */}
+              {isProcessing && (
+                <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 14px", marginBottom: 8, background: "rgba(139,197,63,0.08)", border: `1px solid rgba(139,197,63,0.2)`, borderRadius: 8, animation: "fadeUp .2s ease" }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={C.green} strokeWidth="2" style={{ animation: "spin 1.2s linear infinite", flexShrink: 0 }}><path d="M21 12a9 9 0 11-6.22-8.56"/></svg>
+                  <span style={{ fontSize: 13, color: C.green, fontWeight: 600 }}>Processing documents...</span>
+                  <span style={{ fontSize: 11, color: C.text3 }}>Chat will be available once extraction completes.</span>
+                </div>
+              )}
               {files.length > 0 && (
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
                   {files.map((f, i) => (
@@ -710,7 +975,7 @@ export default function TenderIQ() {
                 </div>
               )}
               {/* Model dropdown hidden — chatModel is pinned to "gemini-3-flash". */}
-              <div style={{ display: "flex", alignItems: "flex-end", gap: 8, background: C.bg1, borderRadius: 12, border: `1px solid ${C.border}`, padding: "5px 8px 5px 5px" }}>
+              <div style={{ display: "flex", alignItems: "flex-end", gap: 8, background: C.bg1, borderRadius: 12, border: `1px solid ${C.border}`, padding: "5px 8px 5px 5px", opacity: isProcessing ? 0.5 : 1, pointerEvents: isProcessing ? "none" : "auto" }}>
                 <button onClick={() => fileRef.current?.click()}
                   style={{ padding: 8, background: "none", border: "none", color: C.text3, cursor: "pointer", borderRadius: 6, flexShrink: 0 }}
                   onMouseEnter={e => e.currentTarget.style.color = C.green}
@@ -720,6 +985,7 @@ export default function TenderIQ() {
                 <input ref={fileRef} type="file" multiple accept=".pdf,.xlsx,.xls,.csv,.ods,.docx,.doc,.dxf,.dwg" style={{ display: "none" }}
                   onChange={e => { setFiles(Array.from(e.target.files)); e.target.value = ""; }} />
                 <textarea value={input} onChange={e => setInput(e.target.value)}
+                  disabled={isProcessing}
                   onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
                   placeholder={files.length > 0 ? "Add a project name or notes (optional)…" : currentProjectId ? "Ask a question about this tender…" : "Upload a tender document or ask a question…"}
                   rows={1}
@@ -735,55 +1001,15 @@ export default function TenderIQ() {
             </div>
           </div>
 
-          {/* Results panel — desktop (draggable + resizable floating) */}
-          {showResults && !isMob && (() => {
-            const H = 6, C2 = 10; // handle thickness, corner size
-            const hl = (cursor, style, dir) => (
-              <div key={dir} onMouseDown={e => onResizeMouseDown(e, dir)}
-                style={{ position: "absolute", cursor, zIndex: 10, ...style }}
-                onMouseEnter={e => e.currentTarget.style.background = "rgba(100,220,100,0.18)"}
-                onMouseLeave={e => e.currentTarget.style.background = "transparent"} />
-            );
-            return (
-              <div ref={panelDragRef}
-                style={{
-                  position: "fixed",
-                  top: panelPos ? panelPos.y : 10,
-                  right: panelPos ? "auto" : 10,
-                  left: panelPos ? panelPos.x : "auto",
-                  width: panelWidth,
-                  height: panelHeight ? panelHeight : "calc(100vh - 20px)",
-                  borderRadius: 18,
-                  overflow: "hidden",
-                  boxShadow: "0 8px 40px rgba(0,0,0,0.55)",
-                  border: `1px solid ${C.border}`,
-                  zIndex: 150,
-                  animation: "slideIn 0.25s ease",
-                  display: "flex",
-                  flexDirection: "column",
-                }}>
-                {/* Edge handles */}
-                {hl("ew-resize", { left: 0, top: C2, bottom: C2, width: H }, "w")}
-                {hl("ew-resize", { right: 0, top: C2, bottom: C2, width: H }, "e")}
-                {hl("ns-resize", { top: 0, left: C2, right: C2, height: H }, "n")}
-                {hl("ns-resize", { bottom: 0, left: C2, right: C2, height: H }, "s")}
-                {/* Corner handles */}
-                {hl("nw-resize", { top: 0, left: 0, width: C2, height: C2 }, "nw")}
-                {hl("ne-resize", { top: 0, right: 0, width: C2, height: C2 }, "ne")}
-                {hl("sw-resize", { bottom: 0, left: 0, width: C2, height: C2 }, "sw")}
-                {hl("se-resize", { bottom: 0, right: 0, width: C2, height: C2 }, "se")}
-                {/* Drag handle */}
-                <div onMouseDown={onPanelMouseDown}
-                  style={{ height: 28, background: C.navyDark, display: "flex", alignItems: "center", justifyContent: "center", cursor: "grab", flexShrink: 0, borderBottom: `1px solid ${C.border}` }}>
-                  <div style={{ width: 36, height: 4, borderRadius: 2, background: C.border }} />
-                </div>
-                <div style={{ flex: 1, overflow: "hidden" }}>
-                  <ResultsPanel token={token} projectId={currentProjectId} projectName={currentProjectName}
-                    onClose={() => { setShowResults(false); setPanelPos(null); setPanelWidth(400); setPanelHeight(null); }} isMobile={false} />
-                </div>
-              </div>
-            );
-          })()}
+          {/* Results panel — desktop fixed right column */}
+          {currentProjectId && !isMob && showResults && (
+            <div style={{ width: 420, borderLeft: `1px solid ${C.border}`, overflow: "hidden", flexShrink: 0 }}>
+              <ResultsPanel token={token} projectId={currentProjectId} projectName={currentProjectName}
+                onClose={() => setShowResults(false)} isMobile={false}
+                onProcessingChange={handleProcessingChange} onUploadFiles={handleUploadMore} uploadTrigger={uploadTrigger}
+                onArchiveProject={() => { handleArchive(currentProjectId); newAnalysis(); }} />
+            </div>
+          )}
         </div>
       </div>
 
@@ -792,14 +1018,22 @@ export default function TenderIQ() {
         <div onClick={() => setMobResults(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 200 }} />
         <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, height: "85vh", zIndex: 201, borderRadius: "16px 16px 0 0", overflow: "hidden", animation: "slideUp 0.3s ease" }}>
           <div style={{ width: 36, height: 4, borderRadius: 2, background: C.text3, margin: "10px auto", opacity: 0.4 }} />
-          <ResultsPanel token={token} projectId={currentProjectId} projectName={currentProjectName} onClose={() => setMobResults(false)} isMobile={true} />
+          <ResultsPanel token={token} projectId={currentProjectId} projectName={currentProjectName} onClose={() => setMobResults(false)} isMobile={true}
+            onProcessingChange={handleProcessingChange} onUploadFiles={handleUploadMore}
+            onArchiveProject={() => { handleArchive(currentProjectId); setMobResults(false); newAnalysis(); }} />
         </div>
       </>}
 
       {/* Context menu & modals */}
       {ctxMenu && (
         <ChatCtxMenu x={ctxMenu.x} y={ctxMenu.y}
+          isArchived={ctxMenu.chat.is_archived}
+          isStarred={ctxMenu.chat.is_starred}
+          onOpen={() => { openChat(ctxMenu.chat); setCtxMenu(null); }}
           onRename={() => { setRenameModal(ctxMenu.chat); setCtxMenu(null); }}
+          onStar={() => { handleStar(ctxMenu.chat.id); setCtxMenu(null); }}
+          onArchive={() => { handleArchive(ctxMenu.chat.id); setCtxMenu(null); }}
+          onUnarchive={() => { handleUnarchive(ctxMenu.chat.id); setCtxMenu(null); }}
           onDelete={() => { setDeleteModal(ctxMenu.chat); setCtxMenu(null); }}
           onClose={() => setCtxMenu(null)} />
       )}
@@ -818,6 +1052,60 @@ export default function TenderIQ() {
             try { await api.deleteProject(token, delId); } catch(e) { console.error("Delete failed:", e); }
           }}
           onClose={() => setDeleteModal(null)} />
+      )}
+
+      {/* ── Error Popup ── */}
+      {errorPopup && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(10,14,20,0.7)", zIndex: 700, display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(4px)", animation: "fadeUp 0.2s ease" }}
+          onClick={() => setErrorPopup(null)}>
+          <div style={{ background: C.bg1, borderRadius: 16, padding: "24px 28px", border: `1px solid ${errorPopup.type === "archived" ? "rgba(255,179,64,0.25)" : "rgba(255,90,90,0.25)"}`, maxWidth: 420, width: "90%", position: "relative", boxShadow: "0 8px 32px rgba(0,0,0,0.3)" }}
+            onClick={e => e.stopPropagation()}>
+            <button onClick={() => setErrorPopup(null)}
+              style={{ position: "absolute", top: 12, right: 12, background: "transparent", border: "none", color: C.text3, cursor: "pointer", padding: 4, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 6, transition: "background 0.15s" }}
+              onMouseEnter={e => e.currentTarget.style.background = `rgba(255,255,255,0.06)`}
+              onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+              <CloseIcon size={16} />
+            </button>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+              <div style={{ width: 36, height: 36, borderRadius: 10, background: errorPopup.type === "archived" ? "rgba(255,179,64,0.1)" : "rgba(255,90,90,0.1)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                {errorPopup.type === "archived" ? (
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FFB340" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/>
+                  </svg>
+                ) : (
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ff5a5a" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+                  </svg>
+                )}
+              </div>
+              <div style={{ fontSize: 16, fontWeight: 700, color: C.text1 }}>
+                {errorPopup.type === "archived" ? "File Already Archived" : errorPopup.type === "duplicate" ? "Duplicate Files Detected" : "Upload Failed"}
+              </div>
+            </div>
+            <div style={{ fontSize: 13, color: C.text2, lineHeight: 1.7 }}>
+              {errorPopup.type === "archived" ? (<>
+                <span style={{ fontWeight: 600, color: C.text1 }}>{errorPopup.fileNames}</span>{" "}
+                {errorPopup.fileNames.includes(",") ? "are" : "is"} in your <span style={{ fontWeight: 600, color: "#FFB340" }}>Archived</span> folder.
+                <div style={{ marginTop: 10, color: C.text3 }}>
+                  You can restore {errorPopup.fileNames.includes(",") ? "them" : "it"} from the Archived section in the parameters panel instead of re-uploading.
+                </div>
+              </>) : errorPopup.type === "duplicate" ? (<>
+                The file(s) you uploaded{" "}
+                <span style={{ fontWeight: 600, color: C.text1 }}>{errorPopup.fileNames}</span>{" "}
+                {errorPopup.fileNames.includes(",") ? "are" : "is"} already scanned for parameters.
+                <div style={{ marginTop: 10, color: C.text3 }}>
+                  Try uploading different files, or delete the existing file(s) from the scan and try again.
+                </div>
+              </>) : errorPopup.message}
+            </div>
+            <button onClick={() => setErrorPopup(null)}
+              style={{ marginTop: 18, width: "100%", padding: "10px 0", background: errorPopup.type === "archived" ? "rgba(255,179,64,0.08)" : "rgba(255,255,255,0.06)", border: `1px solid ${errorPopup.type === "archived" ? "rgba(255,179,64,0.25)" : C.border}`, borderRadius: 8, color: errorPopup.type === "archived" ? "#FFB340" : C.text1, cursor: "pointer", fontSize: 13, fontWeight: 600, fontFamily: F.sans, transition: "background 0.15s" }}
+              onMouseEnter={e => e.currentTarget.style.background = errorPopup.type === "archived" ? "rgba(255,179,64,0.15)" : "rgba(255,255,255,0.1)"}
+              onMouseLeave={e => e.currentTarget.style.background = errorPopup.type === "archived" ? "rgba(255,179,64,0.08)" : "rgba(255,255,255,0.06)"}>
+              OK
+            </button>
+          </div>
+        </div>
       )}
 
       {/* ── Project Creation Dialog ── */}

@@ -3,6 +3,7 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import { C, F } from "@/lib/design";
 import { api } from "@/lib/api";
 import { CloseIcon, DownloadIcon } from "@/components/Icons";
+import { DeleteDocumentsModal } from "@/components/Modals";
 import { getParamGroups, getRequiredParams } from "@/lib/paramConfig";
 import { useParameterStream } from "@/hooks/useParameterStream";
 
@@ -167,7 +168,7 @@ function SourceBadges({ sources, isExpanded }) {
   );
 }
 
-export default function ResultsPanel({ token, projectId, projectName, onClose, isMobile }) {
+export default function ResultsPanel({ token, projectId, projectName, onClose, isMobile, onProcessingChange, onUploadFiles, uploadTrigger, onArchiveProject }) {
   const [params, setParams] = useState([]);
   const [documents, setDocuments] = useState([]);
   const [projectType, setProjectType] = useState("commercial");
@@ -189,6 +190,11 @@ export default function ResultsPanel({ token, projectId, projectName, onClose, i
   const [polling, setPolling] = useState(false);
   const [pipelineStep, setPipelineStep] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
+
+  // Re-poll when parent signals new files were uploaded
+  useEffect(() => {
+    if (uploadTrigger > 0) setRefreshKey(k => k + 1);
+  }, [uploadTrigger]);
   const [reExtracting, setReExtracting] = useState(false);
   const [reExtractingParam, setReExtractingParam] = useState(null); // key of single param being re-extracted
   const [timings, setTimings] = useState(null);
@@ -200,6 +206,16 @@ export default function ResultsPanel({ token, projectId, projectName, onClose, i
   const [filterText, setFilterText] = useState("");
   const [activeTab, setActiveTab] = useState("all"); // "all" | "found" | "missing"
   const [collapsedGroups, setCollapsedGroups] = useState(new Set());
+  const uploadRef = useRef(null);
+  const [selectedDocs, setSelectedDocs] = useState(new Set());
+  const [showDeleteDocsModal, setShowDeleteDocsModal] = useState(false);
+  const [showArchivePrompt, setShowArchivePrompt] = useState(false);
+  const [archiving, setArchiving] = useState(false);
+  const [restoring, setRestoring] = useState(null); // document_id being restored
+  const [showArchivedDocs, setShowArchivedDocs] = useState(false);
+
+  const activeDocs = documents.filter(d => !d.is_archived);
+  const archivedDocs = documents.filter(d => d.is_archived);
 
   // Derive PARAM_GROUPS and REQUIRED_PARAMS based on project type
   const PARAM_GROUPS = useMemo(() => getParamGroups(projectType), [projectType]);
@@ -271,12 +287,14 @@ export default function ResultsPanel({ token, projectId, projectName, onClose, i
           if (stillProcessing && attempts < MAX_ATTEMPTS) {
             attempts++;
             setPolling(true);
+            onProcessingChange?.(true);
             // Slow down after 1 minute (20 polls) to reduce backend load
             if (attempts > 20) currentInterval = Math.min(currentInterval + 1000, MAX_INTERVAL);
             timer = setTimeout(fetchParams, currentInterval);
           } else {
             setPolling(false);
             setReExtracting(false);
+            onProcessingChange?.(false);
           }
         })
         .catch(() => {
@@ -753,9 +771,11 @@ export default function ResultsPanel({ token, projectId, projectName, onClose, i
               </div>
             )}
           </div>
-          <button onClick={onClose} style={{ padding: 4, background: "none", border: "none", color: C.text3, cursor: "pointer" }}>
-            <CloseIcon />
-          </button>
+          {onClose && (
+            <button onClick={onClose} style={{ padding: 4, background: "none", border: "none", color: C.text3, cursor: "pointer" }}>
+              <CloseIcon />
+            </button>
+          )}
         </div>
       </div>
 
@@ -833,9 +853,9 @@ export default function ResultsPanel({ token, projectId, projectName, onClose, i
             onClick={() => setShowDocs(v => !v)}
             style={{ width: "100%", padding: "8px 18px", background: "none", border: "none", display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", color: C.text2 }}>
             <span style={{ fontSize: 11, fontWeight: 600, color: C.text3, textTransform: "uppercase", letterSpacing: "0.08em", display: "flex", alignItems: "center", gap: 8 }}>
-              {documents.length} Document{documents.length !== 1 ? "s" : ""}
+              {activeDocs.length} Document{activeDocs.length !== 1 ? "s" : ""}
               {polling && <span style={{ color: C.warn }}>• scanning</span>}
-              {!polling && !reExtracting && (
+              {!polling && !reExtracting && (<>
                 <span
                   onClick={(e) => { e.stopPropagation(); handleReExtract(); }}
                   style={{ fontSize: 10, padding: "2px 8px", background: "transparent", border: `1px solid ${C.greenBorder}`, borderRadius: 5, color: C.green, cursor: "pointer", fontWeight: 500, letterSpacing: 0, textTransform: "none", transition: "all 0.15s" }}
@@ -843,7 +863,28 @@ export default function ResultsPanel({ token, projectId, projectName, onClose, i
                   onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}>
                   Re-extract
                 </span>
-              )}
+                {onUploadFiles && (
+                  <span
+                    onClick={(e) => { e.stopPropagation(); uploadRef.current?.click(); }}
+                    style={{ fontSize: 10, padding: "2px 8px", background: "transparent", border: `1px solid ${C.border}`, borderRadius: 5, color: C.text2, cursor: "pointer", fontWeight: 500, letterSpacing: 0, textTransform: "none", transition: "all 0.15s" }}
+                    onMouseEnter={e => { e.currentTarget.style.background = C.bg2; e.currentTarget.style.color = C.text1; }}
+                    onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = C.text2; }}>
+                    + Upload
+                  </span>
+                )}
+                <input
+                  ref={uploadRef}
+                  type="file"
+                  multiple
+                  accept=".pdf,.xlsx,.xls,.csv,.ods,.docx,.doc,.dxf,.dwg"
+                  style={{ display: "none" }}
+                  onChange={e => {
+                    const picked = Array.from(e.target.files);
+                    e.target.value = "";
+                    if (picked.length > 0 && onUploadFiles) onUploadFiles(picked);
+                  }}
+                />
+              </>)}
               {reExtracting && (
                 <span style={{ fontSize: 10, color: C.green, letterSpacing: 0, textTransform: "none", display: "flex", alignItems: "center", gap: 4 }}>
                   <span style={{ width: 6, height: 6, borderRadius: "50%", background: C.green, animation: "pulse 1s ease infinite", display: "inline-block" }} />
@@ -855,7 +896,43 @@ export default function ResultsPanel({ token, projectId, projectName, onClose, i
           </button>
           {showDocs && (
             <div style={{ padding: "0 14px 10px", maxHeight: 220, overflowY: "auto", scrollbarWidth: "thin", scrollbarColor: `${C.text3}40 transparent` }}>
-              {documents.map((doc, i) => {
+              {/* Selection bar */}
+              {selectedDocs.size > 0 && (
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "5px 8px", marginBottom: 6, background: "rgba(255,160,50,0.06)", border: `1px solid rgba(255,160,50,0.2)`, borderRadius: 6 }}>
+                  <span style={{ fontSize: 11, color: C.text2, fontWeight: 600 }}>{selectedDocs.size} selected</span>
+                  <div style={{ display: "flex", gap: 6 }}>
+                    <button onClick={() => setSelectedDocs(new Set())}
+                      style={{ fontSize: 10, padding: "2px 8px", background: "transparent", border: `1px solid ${C.border}`, borderRadius: 4, color: C.text3, cursor: "pointer" }}>
+                      Clear
+                    </button>
+                    <button
+                      disabled={archiving || !!restoring || polling || reExtracting}
+                      onClick={async () => {
+                        if (archiving || restoring || polling || reExtracting) return;
+                        if (selectedDocs.size >= activeDocs.length) {
+                          setShowArchivePrompt(true);
+                          return;
+                        }
+                        setArchiving(true);
+                        try {
+                          await api.archiveDocuments(token, projectId, Array.from(selectedDocs));
+                          setSelectedDocs(new Set());
+                          // Backend triggers re-extraction automatically — poll for updates
+                          setReExtracting(true);
+                          setRefreshKey(k => k + 1);
+                        } catch (err) {
+                          console.error("Archive failed:", err);
+                        } finally {
+                          setArchiving(false);
+                        }
+                      }}
+                      style={{ fontSize: 10, padding: "2px 8px", background: (archiving || restoring || polling || reExtracting) ? C.text3 : "#FFB340", border: "none", borderRadius: 4, color: "#111", cursor: (archiving || restoring || polling || reExtracting) ? "not-allowed" : "pointer", fontWeight: 700, opacity: (archiving || restoring || polling || reExtracting) ? 0.5 : 1 }}>
+                      {archiving ? "Archiving..." : "Archive Selected"}
+                    </button>
+                  </div>
+                </div>
+              )}
+              {activeDocs.map((doc, i) => {
                 const st = doc.processing_status;
                 const statusColorMap = {
                   "pending":    "#4A9EFF",
@@ -874,8 +951,22 @@ export default function ResultsPanel({ token, projectId, projectName, onClose, i
                   "completed":  "done",
                   "failed":     "failed",
                 }[st] || st || "ready";
+                const isSelected = selectedDocs.has(doc.document_id);
                 return (
-                  <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", background: C.bg2, borderRadius: 7, marginBottom: 4, border: `1px solid ${statusColor}25` }}>
+                  <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", background: isSelected ? "rgba(255,90,90,0.06)" : C.bg2, borderRadius: 7, marginBottom: 4, border: `1px solid ${isSelected ? "rgba(255,90,90,0.2)" : statusColor + "25"}` }}>
+                    {/* Checkbox */}
+                    {!polling && (
+                      <input type="checkbox" checked={isSelected}
+                        onChange={() => {
+                          setSelectedDocs(prev => {
+                            const next = new Set(prev);
+                            if (next.has(doc.document_id)) next.delete(doc.document_id);
+                            else next.add(doc.document_id);
+                            return next;
+                          });
+                        }}
+                        style={{ width: 14, height: 14, accentColor: C.err, cursor: "pointer", flexShrink: 0 }} />
+                    )}
                     <span style={{ fontSize: 14, flexShrink: 0 }}>{fileIcon(doc.file_type)}</span>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: 11, fontWeight: 600, color: C.text1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={doc.filename}>
@@ -918,6 +1009,104 @@ export default function ResultsPanel({ token, projectId, projectName, onClose, i
                           </svg>
                         </button>
                       )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Archived documents */}
+      {!loading && archivedDocs.length > 0 && (
+        <div style={{ borderBottom: `1px solid ${C.border}`, flexShrink: 0 }}>
+          <button
+            onClick={() => setShowArchivedDocs(v => !v)}
+            style={{ width: "100%", padding: "8px 18px", background: "none", border: "none", display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", color: C.text3 }}>
+            <span style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", display: "flex", alignItems: "center", gap: 6 }}>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/>
+              </svg>
+              {archivedDocs.length} Archived
+            </span>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+              style={{ transform: showArchivedDocs ? "rotate(180deg)" : "none", transition: "transform 0.2s" }}>
+              <polyline points="6 9 12 15 18 9"/>
+            </svg>
+          </button>
+          {showArchivedDocs && (
+            <div style={{ padding: "0 12px 10px" }}>
+              {archivedDocs.map((doc, i) => {
+                const archivedDate = doc.archived_at ? new Date(doc.archived_at) : null;
+                const timeAgo = archivedDate ? (() => {
+                  const diff = Date.now() - archivedDate.getTime();
+                  const mins = Math.floor(diff / 60000);
+                  if (mins < 1) return "just now";
+                  if (mins < 60) return `${mins}m ago`;
+                  const hrs = Math.floor(mins / 60);
+                  if (hrs < 24) return `${hrs}h ago`;
+                  const days = Math.floor(hrs / 24);
+                  return `${days}d ago`;
+                })() : null;
+                return (
+                  <div key={i} style={{ padding: "8px 10px", background: "rgba(255,255,255,0.02)", borderRadius: 7, marginBottom: 4, border: `1px solid ${C.border}`, opacity: 0.8 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <span style={{ fontSize: 14, flexShrink: 0 }}>{fileIcon(doc.file_type)}</span>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 11, fontWeight: 600, color: C.text2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={doc.filename}>
+                          {doc.filename}
+                        </div>
+                        <div style={{ fontSize: 9, color: C.text3, marginTop: 2, display: "flex", alignItems: "center", gap: 4 }}>
+                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+                          </svg>
+                          {archivedDate ? (
+                            <span title={archivedDate.toLocaleString()}>
+                              Archived {timeAgo} · {archivedDate.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
+                            </span>
+                          ) : "Archived"}
+                        </div>
+                      </div>
+                      <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
+                        {(() => {
+                          const busy = polling || reExtracting || archiving || restoring;
+                          const isThisRestoring = restoring === doc.document_id;
+                          return (
+                            <button
+                              disabled={busy}
+                              onClick={async () => {
+                                if (busy) return;
+                                setRestoring(doc.document_id);
+                                try {
+                                  await api.restoreDocuments(token, projectId, [doc.document_id]);
+                                  setReExtracting(true);
+                                  setRefreshKey(k => k + 1);
+                                } catch (err) {
+                                  console.error("Restore failed:", err);
+                                } finally {
+                                  setRestoring(null);
+                                }
+                              }}
+                              style={{ fontSize: 9, padding: "3px 8px", background: busy ? "transparent" : C.greenSubtle, border: `1px solid ${busy ? C.border : C.greenBorder}`, borderRadius: 4, color: busy ? C.text3 : C.green, cursor: busy ? "not-allowed" : "pointer", fontWeight: 700, whiteSpace: "nowrap", opacity: busy && !isThisRestoring ? 0.5 : 1 }}>
+                              {isThisRestoring ? "Restoring..." : "Restore"}
+                            </button>
+                          );
+                        })()}
+                        <button
+                          onClick={async () => {
+                            if (!confirm("Permanently delete this file? This cannot be undone. You will need to re-upload the file.")) return;
+                            try {
+                              await api.deleteDocuments(token, projectId, [doc.document_id]);
+                              setRefreshKey(k => k + 1);
+                            } catch (err) {
+                              console.error("Permanent delete failed:", err);
+                            }
+                          }}
+                          style={{ fontSize: 9, padding: "3px 8px", background: "rgba(255,90,90,0.08)", border: "1px solid rgba(255,90,90,0.2)", borderRadius: 4, color: C.err, cursor: "pointer", fontWeight: 700, whiteSpace: "nowrap" }}>
+                          Delete
+                        </button>
+                      </div>
                     </div>
                   </div>
                 );
@@ -1041,7 +1230,15 @@ export default function ResultsPanel({ token, projectId, projectName, onClose, i
         )}
         {error && (
           <div style={{ margin: "12px 14px", padding: "10px 14px", background: "rgba(255,90,90,0.06)", border: `1px solid rgba(255,90,90,0.15)`, borderRadius: 8, color: C.err, fontSize: 12 }}>
-            {error}
+            {error === "OUT_OF_CREDITS" ? (
+              <div>
+                <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 6 }}>You are out of Credits</div>
+                <div>Please contact:</div>
+                <div style={{ marginTop: 4 }}><strong>Michael Stanley</strong> mike@sooru.ai +91 97427 24935</div>
+                <div style={{ margin: "2px 0" }}>Or</div>
+                <div><strong>Brijesh Shivakumar</strong> brijesh@sooru.ai +91 97438 10910</div>
+              </div>
+            ) : error}
           </div>
         )}
 
@@ -1351,6 +1548,59 @@ export default function ResultsPanel({ token, projectId, projectName, onClose, i
                   {reExtractingParam === popup.key ? "↻ Re-extracting…" : "↻ Re-extract this"}
                 </button>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete documents confirmation modal */}
+      {showDeleteDocsModal && (
+        <DeleteDocumentsModal
+          count={selectedDocs.size}
+          onConfirm={async () => {
+            setShowDeleteDocsModal(false);
+            try {
+              await api.deleteDocuments(token, projectId, Array.from(selectedDocs));
+              setSelectedDocs(new Set());
+              setRefreshKey(k => k + 1);
+            } catch (err) {
+              console.error("Delete documents failed:", err);
+            }
+          }}
+          onClose={() => setShowDeleteDocsModal(false)}
+        />
+      )}
+
+      {/* Archive suggestion when trying to delete all files */}
+      {showArchivePrompt && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(10,14,20,0.7)", zIndex: 700, display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(4px)", animation: "fadeUp 0.2s ease" }}
+          onClick={() => setShowArchivePrompt(false)}>
+          <div style={{ background: C.bg1, borderRadius: 16, padding: "24px 28px", border: `1px solid ${C.border}`, maxWidth: 380, width: "90%", boxShadow: "0 8px 32px rgba(0,0,0,0.3)" }}
+            onClick={e => e.stopPropagation()}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+              <div style={{ width: 36, height: 36, borderRadius: 10, background: "rgba(139,197,63,0.1)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={C.green} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/>
+                </svg>
+              </div>
+              <div style={{ fontSize: 16, fontWeight: 700, color: C.text1 }}>Archive this project?</div>
+            </div>
+            <div style={{ fontSize: 13, color: C.text2, lineHeight: 1.7, marginBottom: 20 }}>
+              You&apos;ve selected all files in this project. Instead of deleting them, shall we archive the project? You can restore it anytime from the sidebar.
+            </div>
+            <div style={{ display: "flex", gap: 10 }}>
+              <button onClick={() => setShowArchivePrompt(false)}
+                style={{ flex: 1, padding: "10px 0", background: "transparent", border: `1px solid ${C.border}`, borderRadius: 8, color: C.text2, cursor: "pointer", fontSize: 13, fontWeight: 600, fontFamily: "inherit" }}>
+                Cancel
+              </button>
+              <button onClick={() => {
+                  setShowArchivePrompt(false);
+                  setSelectedDocs(new Set());
+                  if (onArchiveProject) onArchiveProject();
+                }}
+                style={{ flex: 1, padding: "10px 0", background: C.green, border: "none", borderRadius: 8, color: "#111", cursor: "pointer", fontSize: 13, fontWeight: 700, fontFamily: "inherit" }}>
+                Archive Project
+              </button>
             </div>
           </div>
         </div>

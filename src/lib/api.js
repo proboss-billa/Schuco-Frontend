@@ -7,20 +7,28 @@ function authHeaders(token) {
 
 export const api = {
   async login(email, password) {
-    const url = new URL(`${BASE}/login`);
-    url.searchParams.set("email", email);
-    url.searchParams.set("password", password);
-    const res = await fetch(url.toString(), { method: "POST" });
-    if (!res.ok) throw new Error("Invalid credentials");
+    const res = await fetch(`${BASE}/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || "Invalid credentials");
+    }
     return res.json();
   },
 
-  async signup(email, password) {
-    const url = new URL(`${BASE}/signup`);
-    url.searchParams.set("email", email);
-    url.searchParams.set("password", password);
-    const res = await fetch(url.toString(), { method: "POST" });
-    if (!res.ok) throw new Error("Registration failed");
+  async signup(email, password, name, phone) {
+    const res = await fetch(`${BASE}/signup`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password, name: name || undefined, phone: phone || undefined }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || "Registration failed");
+    }
     return res.json();
   },
 
@@ -61,7 +69,10 @@ export const api = {
       method: "POST",
       headers: authHeaders(token),
     });
-    if (!res.ok) throw new Error(await res.text());
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || "Processing failed");
+    }
     return res.json();
   },
 
@@ -121,7 +132,62 @@ export const api = {
       headers: authHeaders(token),
       body: form,
     });
-    if (!res.ok) throw new Error(await res.text());
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || "Query failed");
+    }
+    return res.json();
+  },
+
+  async verifySignupOtp(email, otp) {
+    const res = await fetch(`${BASE}/verify-otp`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, otp }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || "OTP verification failed");
+    }
+    return res.json();
+  },
+
+  async resendOtp(email, purpose = "signup") {
+    const res = await fetch(`${BASE}/resend-otp`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, purpose }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || "Failed to resend OTP");
+    }
+    return res.json();
+  },
+
+  async forgotPassword(email) {
+    const res = await fetch(`${BASE}/forgot-password`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || "Request failed");
+    }
+    return res.json();
+  },
+
+  async resetPassword(email, otp, new_password) {
+    const res = await fetch(`${BASE}/reset-password`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, otp, new_password }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || "Password reset failed");
+    }
     return res.json();
   },
 
@@ -130,6 +196,109 @@ export const api = {
       headers: authHeaders(token),
     });
     if (!res.ok) throw new Error("Failed to fetch user");
+    return res.json();
+  },
+
+  async updateProfile(token, { name, phone }) {
+    const res = await fetch(`${BASE}/me`, {
+      method: "PUT",
+      headers: { ...authHeaders(token), "Content-Type": "application/json" },
+      body: JSON.stringify({ name, phone }),
+    });
+    if (!res.ok) throw new Error("Failed to update profile");
+    return res.json();
+  },
+
+  async changePassword(token, { current_password, new_password }) {
+    const res = await fetch(`${BASE}/me/password`, {
+      method: "PUT",
+      headers: { ...authHeaders(token), "Content-Type": "application/json" },
+      body: JSON.stringify({ current_password, new_password }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || "Password change failed");
+    }
+    return res.json();
+  },
+
+  async deleteAccount(token) {
+    const res = await fetch(`${BASE}/me`, {
+      method: "DELETE",
+      headers: authHeaders(token),
+    });
+    if (!res.ok) throw new Error("Failed to delete account");
+    return res.json();
+  },
+
+  async uploadAvatar(token, file) {
+    const form = new FormData();
+    form.append("file", file);
+    const res = await fetch(`${BASE}/me/avatar`, {
+      method: "PUT",
+      headers: authHeaders(token),
+      body: form,
+    });
+    if (!res.ok) throw new Error("Avatar upload failed");
+    return res.json();
+  },
+
+  async deleteAvatar(token) {
+    const res = await fetch(`${BASE}/me/avatar`, {
+      method: "DELETE",
+      headers: authHeaders(token),
+    });
+    if (!res.ok) throw new Error("Avatar delete failed");
+    return res.json();
+  },
+
+  getAvatarUrl(token) {
+    return `${BASE}/me/avatar?token=${token}&t=${Date.now()}`;
+  },
+
+  async uploadFiles(token, projectId, files) {
+    const form = new FormData();
+    files.forEach((f) => form.append("files", f));
+    const res = await fetch(`${BASE}/projects/${projectId}/upload`, {
+      method: "POST",
+      headers: authHeaders(token),
+      body: form,
+    });
+    if (!res.ok) {
+      let msg = "Upload failed";
+      try { const j = await res.json(); msg = j.detail || msg; } catch { msg = await res.text(); }
+      throw new Error(msg);
+    }
+    return res.json();
+  },
+
+  async deleteDocuments(token, projectId, documentIds) {
+    const res = await fetch(`${BASE}/projects/${projectId}/documents`, {
+      method: "DELETE",
+      headers: { ...authHeaders(token), "Content-Type": "application/json" },
+      body: JSON.stringify({ document_ids: documentIds }),
+    });
+    if (!res.ok) throw new Error(await res.text());
+    return res.json();
+  },
+
+  async archiveDocuments(token, projectId, documentIds) {
+    const res = await fetch(`${BASE}/projects/${projectId}/documents/archive`, {
+      method: "POST",
+      headers: { ...authHeaders(token), "Content-Type": "application/json" },
+      body: JSON.stringify({ document_ids: documentIds }),
+    });
+    if (!res.ok) throw new Error(await res.text());
+    return res.json();
+  },
+
+  async restoreDocuments(token, projectId, documentIds) {
+    const res = await fetch(`${BASE}/projects/${projectId}/documents/restore`, {
+      method: "POST",
+      headers: { ...authHeaders(token), "Content-Type": "application/json" },
+      body: JSON.stringify({ document_ids: documentIds }),
+    });
+    if (!res.ok) throw new Error(await res.text());
     return res.json();
   },
 
@@ -173,6 +342,34 @@ export const api = {
     const res = await fetch(`${BASE}/projects/${projectId}`, {
       method: "DELETE",
       headers: authHeaders(token),
+    });
+    if (!res.ok) throw new Error(await res.text());
+    return res.json();
+  },
+
+  async toggleStar(token, projectId) {
+    const res = await fetch(`${BASE}/projects/${projectId}/star`, {
+      method: "PATCH",
+      headers: authHeaders(token),
+    });
+    if (!res.ok) throw new Error(await res.text());
+    return res.json();
+  },
+
+  async toggleArchive(token, projectId) {
+    const res = await fetch(`${BASE}/projects/${projectId}/archive`, {
+      method: "PATCH",
+      headers: authHeaders(token),
+    });
+    if (!res.ok) throw new Error(await res.text());
+    return res.json();
+  },
+
+  async bulkUpdateProjects(token, projectIds, action) {
+    const res = await fetch(`${BASE}/projects/bulk`, {
+      method: "PATCH",
+      headers: { ...authHeaders(token), "Content-Type": "application/json" },
+      body: JSON.stringify({ project_ids: projectIds, action }),
     });
     if (!res.ok) throw new Error(await res.text());
     return res.json();
