@@ -113,14 +113,8 @@ export default function TenderIQ() {
   const [avatarUrl, setAvatarUrl] = useState(null);
   const fileRef = useRef(null);
 
-  // When processing transitions from true → false, notify in chat
+  // Track processing state — summary messages are now sent from ResultsPanel
   const handleProcessingChange = useCallback((processing) => {
-    if (wasProcessingRef.current && !processing) {
-      setMsgs(prev => [...prev, {
-        role: "assistant", type: "text",
-        content: "**Processing complete!** Your parameters have been extracted. Check the results panel on the right, or ask me anything about the tender documents.",
-      }]);
-    }
     wasProcessingRef.current = processing;
     setIsProcessing(processing);
   }, []);
@@ -322,8 +316,8 @@ export default function TenderIQ() {
         setShowResults(true);
         const typeLabel = projectType === "residential" ? "Residential" : "Commercial";
         const assistantMsg = {
-          role: "assistant", type: "analysis",
-          content: `I've analyzed **${projectName}** (${typeLabel}) and extracted the key parameters. You can see the structured results in the side panel.\n\nWhat would you like to dive deeper into?`,
+          role: "assistant", type: "text",
+          content: `Project **${projectName}** (${typeLabel}) created. Processing **${uploadedFiles.length}** document(s)...`,
         };
         setMsgs([...newMsgs, assistantMsg]);
         setChats(prev => [{ id: pid, title: projectName, type: projectType, is_starred: false, is_archived: false, date: "Today", updated: "Just now" }, ...prev]);
@@ -454,6 +448,13 @@ export default function TenderIQ() {
     try {
       const res = await api.toggleStar(token, chatId);
       setChats(prev => prev.map(c => c.id === chatId ? { ...c, is_starred: res.is_starred } : c));
+      if (chatId === currentProjectId) {
+        const chatName = chats.find(c => c.id === chatId)?.title || "Project";
+        setMsgs(prev => [...prev, {
+          role: "assistant", type: "text",
+          content: res.is_starred ? `⭐ **${chatName}** added to favourites` : `**${chatName}** removed from favourites`,
+        }]);
+      }
     } catch (e) { console.error("Star failed:", e); }
   };
 

@@ -213,6 +213,7 @@ export default function ResultsPanel({ token, projectId, projectName, onClose, i
   const [archiving, setArchiving] = useState(false);
   const [restoring, setRestoring] = useState(null); // document_id being restored
   const [showArchivedDocs, setShowArchivedDocs] = useState(false);
+  const wasPollingRef = useRef(false);
 
   const activeDocs = documents.filter(d => !d.is_archived);
   const archivedDocs = documents.filter(d => d.is_archived);
@@ -280,6 +281,12 @@ export default function ResultsPanel({ token, projectId, projectName, onClose, i
             setError(data.error_message);
             setPolling(false);
             setReExtracting(false);
+            if (wasPollingRef.current) {
+              const failedDocs = (data.documents || []).filter(d => d.processing_status === "failed");
+              const failedNames = failedDocs.map(d => d.filename).join(", ");
+              onChatMessage?.(`**Processing failed** ${failedNames ? `for **${failedNames}**` : ""}: ${data.error_message}. Try re-uploading.`);
+              wasPollingRef.current = false;
+            }
             return;
           }
 
@@ -287,6 +294,7 @@ export default function ResultsPanel({ token, projectId, projectName, onClose, i
           if (stillProcessing && attempts < MAX_ATTEMPTS) {
             attempts++;
             setPolling(true);
+            wasPollingRef.current = true;
             onProcessingChange?.(true);
             // Slow down after 1 minute (20 polls) to reduce backend load
             if (attempts > 20) currentInterval = Math.min(currentInterval + 1000, MAX_INTERVAL);
@@ -294,6 +302,15 @@ export default function ResultsPanel({ token, projectId, projectName, onClose, i
           } else {
             setPolling(false);
             setReExtracting(false);
+            if (wasPollingRef.current) {
+              const foundParams = merged.filter(p => p.available);
+              const totalParams = merged.length;
+              const avgConf = foundParams.length > 0
+                ? Math.round(foundParams.reduce((sum, p) => sum + (p.confidence || 0), 0) / foundParams.length)
+                : 0;
+              onChatMessage?.(`**Processing complete!** Extracted **${foundParams.length}/${totalParams}** parameters with an average confidence of **${avgConf}%**. Check the results panel for details.`);
+              wasPollingRef.current = false;
+            }
             onProcessingChange?.(false);
           }
         })
@@ -410,10 +427,12 @@ export default function ResultsPanel({ token, projectId, projectName, onClose, i
   const handleReExtract = async () => {
     if (reExtracting || polling) return;
     setReExtracting(true);
+    wasPollingRef.current = true;
     setError("");
     try {
       await api.reExtract(token, projectId, selectedModel);
       setRefreshKey(k => k + 1);
+      if (onChatMessage) onChatMessage(`Re-extracting parameters from **${activeDocs.length}** document(s)...`);
     } catch (e) {
       setError(`Re-extraction failed: ${e.message}`);
       setReExtracting(false);
@@ -911,18 +930,24 @@ export default function ResultsPanel({ token, projectId, projectName, onClose, i
                         if (archiving || restoring || polling || reExtracting) return;
                         if (selectedDocs.size >= activeDocs.length) {
                           setShowArchivePrompt(true);
+                          if (onChatMessage) onChatMessage("You can't archive all files. Delete the project instead or keep at least one active.");
                           return;
                         }
                         setArchiving(true);
                         const archivedNames = activeDocs.filter(d => selectedDocs.has(d.document_id)).map(d => d.filename);
                         const archiveCount = archivedNames.length;
+                        const remainingCount = activeDocs.length - archiveCount;
                         try {
                           await api.archiveDocuments(token, projectId, Array.from(selectedDocs));
                           setSelectedDocs(new Set());
                           // Backend triggers re-extraction automatically — poll for updates
                           setReExtracting(true);
+                          wasPollingRef.current = true;
                           setRefreshKey(k => k + 1);
-                          if (onChatMessage) onChatMessage(`You have Archived **${archiveCount}** File(s): **${archivedNames.join(", ")}**`);
+                          if (onChatMessage) {
+                            onChatMessage(`You have Archived **${archiveCount}** File(s): **${archivedNames.join(", ")}**`);
+                            if (remainingCount > 0) onChatMessage(`Re-extracting parameters from **${remainingCount}** remaining document(s)...`);
+                          }
                         } catch (err) {
                           console.error("Archive failed:", err);
                         } finally {
@@ -1085,8 +1110,13 @@ export default function ResultsPanel({ token, projectId, projectName, onClose, i
                                 try {
                                   await api.restoreDocuments(token, projectId, [doc.document_id]);
                                   setReExtracting(true);
+                                  wasPollingRef.current = true;
                                   setRefreshKey(k => k + 1);
-                                  if (onChatMessage) onChatMessage(`You have Restored **1** File(s): **${restoreName}**`);
+                                  if (onChatMessage) {
+                                    onChatMessage(`You have Restored **1** File(s): **${restoreName}**`);
+                                    const newActiveCount = activeDocs.length + 1;
+                                    onChatMessage(`Re-extracting parameters from **${newActiveCount}** document(s)...`);
+                                  }
                                 } catch (err) {
                                   console.error("Restore failed:", err);
                                 } finally {
