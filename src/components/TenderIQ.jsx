@@ -301,7 +301,7 @@ export default function TenderIQ() {
     setPendingFiles([]);
 
     const userMsg = { role: "user", type: "file", content: uploadedFiles.map(f => f.name).join(", "), text: projectName };
-    const newMsgs = [...msgs, userMsg];
+    const newMsgs = [userMsg];
     setMsgs(newMsgs);
 
     runTypingAnimation(async () => {
@@ -382,6 +382,7 @@ export default function TenderIQ() {
   }, [msgs, currentProjectId]);
 
   const openChat = async (chat) => {
+    setMsgs([]);
     setCurrentProjectId(chat.id);
     setCurrentProjectName(chat.title);
     setCurrentProjectType(chat.type || "commercial");

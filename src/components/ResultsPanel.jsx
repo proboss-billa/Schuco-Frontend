@@ -214,6 +214,7 @@ export default function ResultsPanel({ token, projectId, projectName, onClose, i
   const [restoring, setRestoring] = useState(null); // document_id being restored
   const [showArchivedDocs, setShowArchivedDocs] = useState(false);
   const wasPollingRef = useRef(false);
+  const prevProjectIdRef = useRef(null);
 
   const activeDocs = documents.filter(d => !d.is_archived);
   const archivedDocs = documents.filter(d => d.is_archived);
@@ -245,12 +246,16 @@ export default function ResultsPanel({ token, projectId, projectName, onClose, i
 
   useEffect(() => {
     if (!projectId) return;
-    setLoading(true);
+    const isProjectSwitch = prevProjectIdRef.current !== projectId;
+    if (isProjectSwitch) {
+      setLoading(true);
+      setParams([]);
+      setDocuments([]);
+      prevProjectIdRef.current = projectId;
+    }
     setError("");
     setPolling(false);
     setPipelineStep(null);
-    setParams([]);
-    setDocuments([]);
 
     let cancelled = false;
     let timer = null;
