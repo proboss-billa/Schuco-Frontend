@@ -326,8 +326,9 @@ export const api = {
     }
   },
 
-  getDocumentFileUrl(projectId, documentId, token) {
-    return `${BASE}/projects/${projectId}/documents/${documentId}/file?token=${token}`;
+  getDocumentFileUrl(projectId, documentId, token, filename) {
+    const name = encodeURIComponent(filename || "document");
+    return `${BASE}/docs/${documentId}/${name}?token=${token}`;
   },
 
   async listDocuments(token, projectId) {

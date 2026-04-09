@@ -1461,7 +1461,7 @@ export default function ResultsPanel({ token, projectId, projectName, onClose, i
                     const canOpen = docId && (src.document || "").toLowerCase().endsWith(".pdf");
                     const openDoc = (page) => {
                       if (!docId) return;
-                      const url = api.getDocumentFileUrl(projectId, docId, token);
+                      const url = api.getDocumentFileUrl(projectId, docId, token, src.document);
                       window.open(page ? `${url}#page=${page}` : url, "_blank");
                     };
                     return (
