@@ -52,10 +52,15 @@ export default function AuthScreen({ onLogin }) {
 
   const handleSignup = async () => {
     setError(""); setLoading(true);
+    if (!form.first.trim()) { setError("First name is required"); setLoading(false); return; }
+    if (!form.last.trim()) { setError("Last name is required"); setLoading(false); return; }
+    if (!form.email.trim()) { setError("Email is required"); setLoading(false); return; }
+    if (!form.phone.trim()) { setError("Phone number is required"); setLoading(false); return; }
+    if (form.pw.length < 8) { setError("Password must be at least 8 characters"); setLoading(false); return; }
     if (form.pw !== form.pw2) { setError("Passwords do not match"); setLoading(false); return; }
     try {
-      const name = [form.first, form.last].filter(Boolean).join(" ") || undefined;
-      const phone = form.phone ? `${form.cc}${form.phone}` : undefined;
+      const name = [form.first.trim(), form.last.trim()].join(" ");
+      const phone = `${form.cc}${form.phone.trim()}`;
       const res = await api.signup(form.email, form.pw, name, phone);
       setSignupEmail(form.email);
       if (res.dev_otp) {
@@ -150,7 +155,7 @@ export default function AuthScreen({ onLogin }) {
   const handleResetPassword = async () => {
     setError(""); setLoading(true);
     if (newPw !== confirmPw) { setError("Passwords do not match"); setLoading(false); return; }
-    if (newPw.length < 6) { setError("Password must be at least 6 characters"); setLoading(false); return; }
+    if (newPw.length < 8) { setError("Password must be at least 8 characters"); setLoading(false); return; }
     try {
       await api.resetPassword(resetEmail, resetOtp, newPw);
       setNewPw(""); setConfirmPw(""); setResetOtp("");
@@ -378,7 +383,7 @@ export default function AuthScreen({ onLogin }) {
             <p style={{ margin: "0 0 24px", fontSize: 13, color: C.text2, textAlign: "center" }}>Choose a strong password for your account</p>
             <div style={{ marginBottom: 14 }}>
               <label style={lbl}>New Password</label>
-              <input style={inputBase} type="password" placeholder="Min 6 characters" value={newPw} onChange={e => setNewPw(e.target.value)} onFocus={fB} onBlur={bB} />
+              <input style={inputBase} type="password" placeholder="Min 8 characters" value={newPw} onChange={e => setNewPw(e.target.value)} onFocus={fB} onBlur={bB} />
             </div>
             <div style={{ marginBottom: 22 }}>
               <label style={lbl}>Confirm Password</label>
