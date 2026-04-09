@@ -63,7 +63,11 @@ export default function AuthScreen({ onLogin }) {
       const phone = `${form.cc}${form.phone.trim()}`;
       const res = await api.signup(form.email, form.pw, name, phone);
       setSignupEmail(form.email);
-      setOtpValues(["", "", "", ""]);
+      if (res.dev_otp) {
+        setOtpValues(res.dev_otp.split(""));
+      } else {
+        setOtpValues(["", "", "", ""]);
+      }
       setOtpTimer(30);
       setView("signup-otp");
       setError("");
@@ -90,9 +94,13 @@ export default function AuthScreen({ onLogin }) {
 
   const handleResendSignupOtp = async () => {
     try {
-      await api.resendOtp(signupEmail, "signup");
+      const res = await api.resendOtp(signupEmail, "signup");
       setOtpTimer(30);
-      setOtpValues(["", "", "", ""]);
+      if (res.dev_otp) {
+        setOtpValues(res.dev_otp.split(""));
+      } else {
+        setOtpValues(["", "", "", ""]);
+      }
       setError("");
     } catch (e) {
       setError(e.message);
@@ -102,9 +110,13 @@ export default function AuthScreen({ onLogin }) {
   const handleForgotPassword = async () => {
     setError(""); setLoading(true);
     try {
-      await api.forgotPassword(form.email);
+      const res = await api.forgotPassword(form.email);
       setResetEmail(form.email);
-      setOtpValues(["", "", "", "", "", ""]);
+      if (res.dev_otp) {
+        setOtpValues(res.dev_otp.split(""));
+      } else {
+        setOtpValues(["", "", "", "", "", ""]);
+      }
       setOtpTimer(30);
       setView("otp");
       setError("");
@@ -125,9 +137,13 @@ export default function AuthScreen({ onLogin }) {
 
   const handleResendResetOtp = async () => {
     try {
-      await api.resendOtp(resetEmail, "reset_password");
+      const res = await api.resendOtp(resetEmail, "reset_password");
       setOtpTimer(30);
-      setOtpValues(["", "", "", "", "", ""]);
+      if (res.dev_otp) {
+        setOtpValues(res.dev_otp.split(""));
+      } else {
+        setOtpValues(["", "", "", "", "", ""]);
+      }
       setError("");
     } catch (e) {
       setError(e.message);
