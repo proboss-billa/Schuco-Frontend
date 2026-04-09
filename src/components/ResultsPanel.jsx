@@ -168,7 +168,7 @@ function SourceBadges({ sources, isExpanded }) {
   );
 }
 
-export default function ResultsPanel({ token, projectId, projectName, onClose, isMobile, onProcessingChange, onUploadFiles, uploadTrigger, onArchiveProject }) {
+export default function ResultsPanel({ token, projectId, projectName, onClose, isMobile, onProcessingChange, onUploadFiles, uploadTrigger, onArchiveProject, onChatMessage }) {
   const [params, setParams] = useState([]);
   const [documents, setDocuments] = useState([]);
   const [projectType, setProjectType] = useState("commercial");
@@ -914,12 +914,15 @@ export default function ResultsPanel({ token, projectId, projectName, onClose, i
                           return;
                         }
                         setArchiving(true);
+                        const archivedNames = activeDocs.filter(d => selectedDocs.has(d.document_id)).map(d => d.filename);
+                        const archiveCount = archivedNames.length;
                         try {
                           await api.archiveDocuments(token, projectId, Array.from(selectedDocs));
                           setSelectedDocs(new Set());
                           // Backend triggers re-extraction automatically — poll for updates
                           setReExtracting(true);
                           setRefreshKey(k => k + 1);
+                          if (onChatMessage) onChatMessage(`You have Archived **${archiveCount}** File(s): **${archivedNames.join(", ")}**`);
                         } catch (err) {
                           console.error("Archive failed:", err);
                         } finally {
@@ -1078,10 +1081,12 @@ export default function ResultsPanel({ token, projectId, projectName, onClose, i
                               onClick={async () => {
                                 if (busy) return;
                                 setRestoring(doc.document_id);
+                                const restoreName = doc.filename;
                                 try {
                                   await api.restoreDocuments(token, projectId, [doc.document_id]);
                                   setReExtracting(true);
                                   setRefreshKey(k => k + 1);
+                                  if (onChatMessage) onChatMessage(`You have Restored **1** File(s): **${restoreName}**`);
                                 } catch (err) {
                                   console.error("Restore failed:", err);
                                 } finally {
@@ -1096,9 +1101,11 @@ export default function ResultsPanel({ token, projectId, projectName, onClose, i
                         <button
                           onClick={async () => {
                             if (!confirm("Permanently delete this file? This cannot be undone. You will need to re-upload the file.")) return;
+                            const deleteName = doc.filename;
                             try {
                               await api.deleteDocuments(token, projectId, [doc.document_id]);
                               setRefreshKey(k => k + 1);
+                              if (onChatMessage) onChatMessage(`You have Deleted **1** File(s): **${deleteName}**`);
                             } catch (err) {
                               console.error("Permanent delete failed:", err);
                             }

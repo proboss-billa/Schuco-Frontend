@@ -1007,7 +1007,8 @@ export default function TenderIQ() {
               <ResultsPanel token={token} projectId={currentProjectId} projectName={currentProjectName}
                 onClose={() => setShowResults(false)} isMobile={false}
                 onProcessingChange={handleProcessingChange} onUploadFiles={handleUploadMore} uploadTrigger={uploadTrigger}
-                onArchiveProject={() => { handleArchive(currentProjectId); newAnalysis(); }} />
+                onArchiveProject={() => { handleArchive(currentProjectId); newAnalysis(); }}
+                onChatMessage={(msg) => setMsgs(prev => [...prev, { role: "assistant", type: "text", content: msg }])} />
             </div>
           )}
         </div>
@@ -1020,7 +1021,8 @@ export default function TenderIQ() {
           <div style={{ width: 36, height: 4, borderRadius: 2, background: C.text3, margin: "10px auto", opacity: 0.4 }} />
           <ResultsPanel token={token} projectId={currentProjectId} projectName={currentProjectName} onClose={() => setMobResults(false)} isMobile={true}
             onProcessingChange={handleProcessingChange} onUploadFiles={handleUploadMore}
-            onArchiveProject={() => { handleArchive(currentProjectId); setMobResults(false); newAnalysis(); }} />
+            onArchiveProject={() => { handleArchive(currentProjectId); setMobResults(false); newAnalysis(); }}
+            onChatMessage={(msg) => setMsgs(prev => [...prev, { role: "assistant", type: "text", content: msg }])} />
         </div>
       </>}
 
