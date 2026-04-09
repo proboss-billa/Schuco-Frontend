@@ -20,6 +20,7 @@ export default function AuthScreen({ onLogin }) {
   const [confirmPw, setConfirmPw] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [touched, setTouched] = useState({});
   const otpRefs = useRef([]);
 
   useEffect(() => {
@@ -167,6 +168,11 @@ export default function AuthScreen({ onLogin }) {
   };
 
   const f = (k) => (e) => setForm({ ...form, [k]: e.target.value });
+  const markTouched = (k) => () => setTouched(prev => ({ ...prev, [k]: true }));
+  const reqLabel = (text) => <label style={lbl}>{text} <span style={{ color: C.err }}>*</span></label>;
+  const fieldErr = (k, msg) => touched[k] && !form[k].trim() ? <div style={{ fontSize: 11, color: C.err, marginTop: 3 }}>{msg}</div> : null;
+  const pwErr = touched.pw && form.pw.length > 0 && form.pw.length < 8 ? <div style={{ fontSize: 11, color: C.err, marginTop: 3 }}>Minimum 8 characters</div> : touched.pw && !form.pw ? <div style={{ fontSize: 11, color: C.err, marginTop: 3 }}>Required</div> : null;
+  const pw2Err = touched.pw2 && !form.pw2 ? <div style={{ fontSize: 11, color: C.err, marginTop: 3 }}>Required</div> : touched.pw2 && form.pw2 && form.pw !== form.pw2 ? <div style={{ fontSize: 11, color: C.err, marginTop: 3 }}>Passwords do not match</div> : null;
 
   return (
     <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: `radial-gradient(ellipse at 30% 20%, ${C.bg2} 0%, ${C.bg} 50%, ${C.navyDeep} 100%)`, fontFamily: F.sans, padding: 20 }}>
@@ -229,42 +235,46 @@ export default function AuthScreen({ onLogin }) {
             <h2 style={{ margin: "0 0 4px", fontSize: 19, fontWeight: 600, color: C.text1 }}>Create account</h2>
             <p style={{ margin: "0 0 22px", fontSize: 13, color: C.text2 }}>Start analyzing tender documents with AI</p>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 14 }}>
-              <div><label style={lbl}>First Name</label><input style={inputBase} placeholder="John" value={form.first} onChange={f("first")} onFocus={fB} onBlur={bB} /></div>
-              <div><label style={lbl}>Last Name</label><input style={inputBase} placeholder="Doe" value={form.last} onChange={f("last")} onFocus={fB} onBlur={bB} /></div>
+              <div>{reqLabel("First Name")}<input style={{ ...inputBase, borderColor: touched.first && !form.first.trim() ? C.err : undefined }} placeholder="John" value={form.first} onChange={f("first")} onFocus={fB} onBlur={(e) => { bB(e); markTouched("first")(); }} />{fieldErr("first", "Required")}</div>
+              <div>{reqLabel("Last Name")}<input style={{ ...inputBase, borderColor: touched.last && !form.last.trim() ? C.err : undefined }} placeholder="Doe" value={form.last} onChange={f("last")} onFocus={fB} onBlur={(e) => { bB(e); markTouched("last")(); }} />{fieldErr("last", "Required")}</div>
             </div>
             <div style={{ marginBottom: 14 }}>
-              <label style={lbl}>Email</label>
-              <input style={inputBase} type="email" placeholder="you@schueco.com" value={form.email} onChange={f("email")} onFocus={fB} onBlur={bB} />
+              {reqLabel("Email")}
+              <input style={{ ...inputBase, borderColor: touched.email && !form.email.trim() ? C.err : undefined }} type="email" placeholder="you@schueco.com" value={form.email} onChange={f("email")} onFocus={fB} onBlur={(e) => { bB(e); markTouched("email")(); }} />
+              {fieldErr("email", "Required")}
               <p style={{ margin: "6px 0 0", fontSize: 11, color: C.text3, lineHeight: 1.4 }}>
                 Only @schueco.in, @schueco.com, and @sooru.ai email addresses are allowed.
                 <br />For more, contact <span style={{ color: C.text2 }}>mike@sooru.ai</span> or <span style={{ color: C.text2 }}>brijesh@sooru.ai</span> for assistance.
               </p>
             </div>
             <div style={{ marginBottom: 14 }}>
-              <label style={lbl}>Phone Number</label>
+              {reqLabel("Phone Number")}
               <div style={{ display: "grid", gridTemplateColumns: "160px 1fr", gap: 8 }}>
                 <select style={{ ...inputBase, cursor: "pointer", padding: "11px 8px" }} value={form.cc} onChange={f("cc")}>
                   {COUNTRY_CODES.map((c, i) => (
                     <option key={i} value={c.code}>{c.code} {c.country}</option>
                   ))}
                 </select>
-                <input style={inputBase} type="tel"
+                <input style={{ ...inputBase, borderColor: touched.phone && !form.phone.trim() ? C.err : undefined }} type="tel"
                   placeholder={COUNTRY_CODES.find(c => c.code === form.cc)?.placeholder || "000 000 0000"}
-                  value={form.phone} onChange={f("phone")} onFocus={fB} onBlur={bB} />
+                  value={form.phone} onChange={f("phone")} onFocus={fB} onBlur={(e) => { bB(e); markTouched("phone")(); }} />
               </div>
+              {fieldErr("phone", "Required")}
             </div>
             <div style={{ marginBottom: 14 }}>
-              <label style={lbl}>Password</label>
+              {reqLabel("Password")}
               <div style={{ position: "relative" }}>
-                <input style={{ ...inputBase, paddingRight: 40 }} type={showPw ? "text" : "password"} placeholder="Min 8 characters" value={form.pw} onChange={f("pw")} onFocus={fB} onBlur={bB} />
+                <input style={{ ...inputBase, paddingRight: 40, borderColor: touched.pw && (!form.pw || form.pw.length < 8) ? C.err : undefined }} type={showPw ? "text" : "password"} placeholder="Min 8 characters" value={form.pw} onChange={f("pw")} onFocus={fB} onBlur={(e) => { bB(e); markTouched("pw")(); }} />
                 <button onClick={() => setShowPw(!showPw)} style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", color: C.text3, cursor: "pointer", padding: 4 }}>
                   {showPw ? <EyeOffIcon /> : <EyeIcon />}
                 </button>
               </div>
+              {pwErr}
             </div>
             <div style={{ marginBottom: 22 }}>
-              <label style={lbl}>Confirm Password</label>
-              <input style={inputBase} type="password" placeholder="Re-enter password" value={form.pw2} onChange={f("pw2")} onFocus={fB} onBlur={bB} />
+              {reqLabel("Confirm Password")}
+              <input style={{ ...inputBase, borderColor: touched.pw2 && (!form.pw2 || form.pw !== form.pw2) ? C.err : undefined }} type="password" placeholder="Re-enter password" value={form.pw2} onChange={f("pw2")} onFocus={fB} onBlur={(e) => { bB(e); markTouched("pw2")(); }} />
+              {pw2Err}
             </div>
             {error && <div style={{ marginBottom: 14, padding: "9px 12px", background: "rgba(255,90,90,0.08)", border: `1px solid rgba(255,90,90,0.2)`, borderRadius: 6, color: C.err, fontSize: 13 }}>{error}</div>}
             <button style={{ ...btnG, opacity: loading ? 0.7 : 1 }} onClick={handleSignup} disabled={loading}
