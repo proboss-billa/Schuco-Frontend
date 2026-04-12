@@ -119,7 +119,7 @@ export default function ProfileScreen({ user, token, avatarUrl, onAvatarChange, 
       <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 28 }}>
         <div style={{ position: "relative", flexShrink: 0 }}>
           {avatarUrl ? (
-            <img src={avatarUrl} style={{ width: 60, height: 60, borderRadius: "50%", objectFit: "cover" }} />
+            <img src={avatarUrl} onError={() => onAvatarChange?.(null)} style={{ width: 60, height: 60, borderRadius: "50%", objectFit: "cover" }} />
           ) : (
             <div style={{ width: 60, height: 60, borderRadius: "50%", background: `linear-gradient(135deg, ${C.green}, ${C.navy})`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, fontWeight: 700, color: "#fff" }}>
               {getInitials()}

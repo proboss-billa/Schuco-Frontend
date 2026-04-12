@@ -1,46 +1,28 @@
 "use client";
-import { useState, useEffect, useRef } from "react";
+import { useState } from "react";
 import { C, F, inputBase, lbl, btnG, fB, bB } from "@/lib/design";
 import { api } from "@/lib/api";
 import { COUNTRY_CODES } from "@/lib/countryCodes";
-import {
-  SchucoFull, BackIcon, EyeIcon, EyeOffIcon, CheckIcon, MailIcon,
-} from "@/components/Icons";
+import { SchucoFull, EyeIcon, EyeOffIcon } from "@/components/Icons";
 
 export default function AuthScreen({ onLogin }) {
   const [view, setView] = useState("login");
   const [showPw, setShowPw] = useState(false);
   const [form, setForm] = useState({ email: "", pw: "", first: "", last: "", cc: "+49", phone: "", pw2: "" });
-  const [otpValues, setOtpValues] = useState(["", "", "", ""]);
-  const [otpTimer, setOtpTimer] = useState(30);
-  const [signupEmail, setSignupEmail] = useState("");
-  const [resetEmail, setResetEmail] = useState("");
-  const [resetOtp, setResetOtp] = useState("");
-  const [newPw, setNewPw] = useState("");
-  const [confirmPw, setConfirmPw] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [touched, setTouched] = useState({});
-  const otpRefs = useRef([]);
-
-  useEffect(() => {
-    if ((view === "otp" || view === "signup-otp") && otpTimer > 0) {
-      const t = setTimeout(() => setOtpTimer(otpTimer - 1), 1000);
-      return () => clearTimeout(t);
-    }
-  }, [view, otpTimer]);
-
-  const handleOtpChange = (idx, val) => {
-    if (val.length > 1) return;
-    const nv = [...otpValues]; nv[idx] = val; setOtpValues(nv);
-    if (val && idx < otpValues.length - 1) otpRefs.current[idx + 1]?.focus();
-  };
-  const handleOtpKey = (idx, e) => {
-    if (e.key === "Backspace" && !otpValues[idx] && idx > 0) otpRefs.current[idx - 1]?.focus();
-  };
 
   const handleLogin = async () => {
-    setError(""); setLoading(true);
+    setError("");
+    // Validate required login fields
+    if (!form.email.trim() || !form.pw) {
+      setTouched(prev => ({ ...prev, email: true, pw: true }));
+      if (!form.email.trim() && !form.pw) { setError("Email and password are required"); return; }
+      if (!form.email.trim()) { setError("Email is required"); return; }
+      setError("Password is required"); return;
+    }
+    setLoading(true);
     try {
       const data = await api.login(form.email, form.pw);
       onLogin(data.access_token, data.user);
@@ -62,104 +44,8 @@ export default function AuthScreen({ onLogin }) {
     try {
       const name = [form.first.trim(), form.last.trim()].join(" ");
       const phone = `${form.cc}${form.phone.trim()}`;
-      const res = await api.signup(form.email, form.pw, name, phone);
-      setSignupEmail(form.email);
-      if (res.dev_otp) {
-        setOtpValues(res.dev_otp.split(""));
-      } else {
-        setOtpValues(["", "", "", ""]);
-      }
-      setOtpTimer(30);
-      setView("signup-otp");
-      setError("");
-    } catch (e) {
-      setError(e.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleVerifySignupOtp = async () => {
-    setError(""); setLoading(true);
-    const otp = otpValues.join("");
-    if (otp.length < 4) { setError("Please enter the complete OTP"); setLoading(false); return; }
-    try {
-      const data = await api.verifySignupOtp(signupEmail, otp);
+      const data = await api.signup(form.email, form.pw, name, phone);
       onLogin(data.access_token, data.user);
-    } catch (e) {
-      setError(e.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleResendSignupOtp = async () => {
-    try {
-      const res = await api.resendOtp(signupEmail, "signup");
-      setOtpTimer(30);
-      if (res.dev_otp) {
-        setOtpValues(res.dev_otp.split(""));
-      } else {
-        setOtpValues(["", "", "", ""]);
-      }
-      setError("");
-    } catch (e) {
-      setError(e.message);
-    }
-  };
-
-  const handleForgotPassword = async () => {
-    setError(""); setLoading(true);
-    try {
-      const res = await api.forgotPassword(form.email);
-      setResetEmail(form.email);
-      if (res.dev_otp) {
-        setOtpValues(res.dev_otp.split(""));
-      } else {
-        setOtpValues(["", "", "", "", "", ""]);
-      }
-      setOtpTimer(30);
-      setView("otp");
-      setError("");
-    } catch (e) {
-      setError(e.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleVerifyResetOtp = () => {
-    const otp = otpValues.join("");
-    if (otp.length < 6) { setError("Please enter the complete OTP"); return; }
-    setResetOtp(otp);
-    setError("");
-    setView("newpass");
-  };
-
-  const handleResendResetOtp = async () => {
-    try {
-      const res = await api.resendOtp(resetEmail, "reset_password");
-      setOtpTimer(30);
-      if (res.dev_otp) {
-        setOtpValues(res.dev_otp.split(""));
-      } else {
-        setOtpValues(["", "", "", "", "", ""]);
-      }
-      setError("");
-    } catch (e) {
-      setError(e.message);
-    }
-  };
-
-  const handleResetPassword = async () => {
-    setError(""); setLoading(true);
-    if (newPw !== confirmPw) { setError("Passwords do not match"); setLoading(false); return; }
-    if (newPw.length < 8) { setError("Password must be at least 8 characters"); setLoading(false); return; }
-    try {
-      await api.resetPassword(resetEmail, resetOtp, newPw);
-      setNewPw(""); setConfirmPw(""); setResetOtp("");
-      setError("");
-      setView("login");
     } catch (e) {
       setError(e.message);
     } finally {
@@ -202,22 +88,22 @@ export default function AuthScreen({ onLogin }) {
             <h2 style={{ margin: "0 0 4px", fontSize: 19, fontWeight: 600, color: C.text1 }}>Welcome back</h2>
             <p style={{ margin: "0 0 26px", fontSize: 13, color: C.text2 }}>Sign in to continue analyzing tenders</p>
             <div style={{ marginBottom: 16 }}>
-              <label style={lbl}>Email</label>
-              <input style={inputBase} type="email" placeholder="you@company.com" value={form.email} onChange={f("email")} onFocus={fB} onBlur={bB} />
+              {reqLabel("Email")}
+              <input style={{ ...inputBase, borderColor: touched.email && !form.email.trim() ? C.err : undefined }} type="email" placeholder="you@company.com" value={form.email} onChange={f("email")} onFocus={fB} onBlur={(e) => { bB(e); markTouched("email")(); }} />
+              {fieldErr("email", "Required")}
             </div>
             <div style={{ marginBottom: 8 }}>
-              <label style={lbl}>Password</label>
+              {reqLabel("Password")}
               <div style={{ position: "relative" }}>
-                <input style={{ ...inputBase, paddingRight: 40 }} type={showPw ? "text" : "password"} placeholder="Enter password" value={form.pw} onChange={f("pw")} onFocus={fB} onBlur={bB}
+                <input style={{ ...inputBase, paddingRight: 40, borderColor: touched.pw && !form.pw ? C.err : undefined }} type={showPw ? "text" : "password"} placeholder="Enter password" value={form.pw} onChange={f("pw")} onFocus={fB} onBlur={(e) => { bB(e); markTouched("pw")(); }}
                   onKeyDown={e => e.key === "Enter" && handleLogin()} />
                 <button onClick={() => setShowPw(!showPw)} style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", color: C.text3, cursor: "pointer", padding: 4 }}>
                   {showPw ? <EyeOffIcon /> : <EyeIcon />}
                 </button>
               </div>
+              {touched.pw && !form.pw && <div style={{ fontSize: 11, color: C.err, marginTop: 3 }}>Required</div>}
             </div>
-            <div style={{ textAlign: "right", marginBottom: 22 }}>
-              <button onClick={() => { setError(""); setView("forgot"); }} style={{ background: "none", border: "none", color: C.green, fontSize: 12, cursor: "pointer", fontFamily: F.sans, fontWeight: 600 }}>Forgot password?</button>
-            </div>
+            <div style={{ marginBottom: 22 }} />
             {error && <div style={{ marginBottom: 14, padding: "9px 12px", background: "rgba(255,90,90,0.08)", border: `1px solid rgba(255,90,90,0.2)`, borderRadius: 6, color: C.err, fontSize: 13 }}>{error}</div>}
             <button style={{ ...btnG, opacity: loading ? 0.7 : 1 }} onClick={handleLogin} disabled={loading}
               onMouseEnter={e => { if (!loading) e.target.style.background = C.accentHover; }}
@@ -286,123 +172,6 @@ export default function AuthScreen({ onLogin }) {
               Already have an account?{" "}
               <button onClick={() => { setError(""); setView("login"); }} style={{ background: "none", border: "none", color: C.green, cursor: "pointer", fontFamily: F.sans, fontWeight: 700, fontSize: 13 }}>Sign in</button>
             </p>
-          </>}
-
-          {/* ── SIGNUP OTP ── */}
-          {view === "signup-otp" && <>
-            <button onClick={() => setView("register")} style={{ background: "none", border: "none", color: C.text2, cursor: "pointer", display: "flex", alignItems: "center", gap: 4, padding: 0, marginBottom: 18, fontFamily: F.sans, fontSize: 12 }}>
-              <BackIcon /> Back
-            </button>
-            <div style={{ display: "flex", justifyContent: "center", marginBottom: 20 }}>
-              <div style={{ width: 52, height: 52, borderRadius: "50%", background: C.greenSubtle, border: `2px solid ${C.greenBorder}`, display: "flex", alignItems: "center", justifyContent: "center", color: C.green }}>
-                <MailIcon />
-              </div>
-            </div>
-            <h2 style={{ margin: "0 0 4px", fontSize: 19, fontWeight: 600, color: C.text1, textAlign: "center" }}>Verify your email</h2>
-            <p style={{ margin: "0 0 28px", fontSize: 13, color: C.text2, textAlign: "center" }}>
-              Enter the 4-digit code sent to <strong style={{ color: C.text1 }}>{signupEmail}</strong>
-            </p>
-            <div style={{ display: "flex", gap: 10, justifyContent: "center", marginBottom: 24 }}>
-              {otpValues.map((v, i) => (
-                <input key={i} ref={el => { otpRefs.current[i] = el; }} value={v}
-                  onChange={e => handleOtpChange(i, e.target.value)} onKeyDown={e => handleOtpKey(i, e)} maxLength={1}
-                  style={{ width: 52, height: 58, textAlign: "center", fontSize: 22, fontWeight: 700, fontFamily: F.mono, background: C.bg, border: `1.5px solid ${v ? C.green : C.border2}`, borderRadius: 10, color: C.text1, outline: "none", boxShadow: v ? `0 0 0 3px ${C.greenGlow}` : "none", transition: "all 0.2s" }}
-                  onFocus={e => { e.target.style.borderColor = C.green; e.target.style.boxShadow = `0 0 0 3px ${C.greenGlow}`; }}
-                  onBlur={e => { if (!v) { e.target.style.borderColor = C.border2; e.target.style.boxShadow = "none"; } }}
-                />
-              ))}
-            </div>
-            {error && <div style={{ marginBottom: 14, padding: "9px 12px", background: "rgba(255,90,90,0.08)", border: `1px solid rgba(255,90,90,0.2)`, borderRadius: 6, color: C.err, fontSize: 13 }}>{error}</div>}
-            <button style={{ ...btnG, opacity: loading ? 0.7 : 1 }} onClick={handleVerifySignupOtp} disabled={loading}
-              onMouseEnter={e => { if (!loading) e.target.style.background = C.accentHover; }}
-              onMouseLeave={e => e.target.style.background = C.green}>
-              {loading ? "Verifying…" : "Verify & Continue"}
-            </button>
-            <p style={{ margin: "16px 0 0", textAlign: "center", fontSize: 12, color: C.text3 }}>
-              {otpTimer > 0
-                ? <>Resend in <strong style={{ color: C.text2 }}>{otpTimer}s</strong></>
-                : <button onClick={handleResendSignupOtp} style={{ background: "none", border: "none", color: C.green, cursor: "pointer", fontFamily: F.sans, fontWeight: 600, fontSize: 12 }}>Resend OTP</button>}
-            </p>
-          </>}
-
-          {/* ── FORGOT PASSWORD ── */}
-          {view === "forgot" && <>
-            <button onClick={() => setView("login")} style={{ background: "none", border: "none", color: C.text2, cursor: "pointer", display: "flex", alignItems: "center", gap: 4, padding: 0, marginBottom: 18, fontFamily: F.sans, fontSize: 12 }}>
-              <BackIcon /> Back to login
-            </button>
-            <div style={{ display: "flex", justifyContent: "center", marginBottom: 20 }}>
-              <div style={{ width: 52, height: 52, borderRadius: "50%", background: C.greenSubtle, border: `2px solid ${C.greenBorder}`, display: "flex", alignItems: "center", justifyContent: "center", color: C.green }}>
-                <MailIcon />
-              </div>
-            </div>
-            <h2 style={{ margin: "0 0 4px", fontSize: 19, fontWeight: 600, color: C.text1, textAlign: "center" }}>Reset password</h2>
-            <p style={{ margin: "0 0 24px", fontSize: 13, color: C.text2, textAlign: "center" }}>We'll send a 6-digit OTP to your email</p>
-            <div style={{ marginBottom: 22 }}>
-              <label style={lbl}>Email</label>
-              <input style={inputBase} type="email" placeholder="you@company.com" value={form.email} onChange={f("email")} onFocus={fB} onBlur={bB} />
-            </div>
-            {error && <div style={{ marginBottom: 14, padding: "9px 12px", background: "rgba(255,90,90,0.08)", border: `1px solid rgba(255,90,90,0.2)`, borderRadius: 6, color: C.err, fontSize: 13 }}>{error}</div>}
-            <button style={{ ...btnG, opacity: loading ? 0.7 : 1 }} onClick={handleForgotPassword} disabled={loading}
-              onMouseEnter={e => { if (!loading) e.target.style.background = C.accentHover; }}
-              onMouseLeave={e => e.target.style.background = C.green}>
-              {loading ? "Sending…" : "Send OTP"}
-            </button>
-          </>}
-
-          {/* ── OTP (password reset, 6-digit) ── */}
-          {view === "otp" && <>
-            <button onClick={() => setView("forgot")} style={{ background: "none", border: "none", color: C.text2, cursor: "pointer", display: "flex", alignItems: "center", gap: 4, padding: 0, marginBottom: 18, fontFamily: F.sans, fontSize: 12 }}>
-              <BackIcon /> Back
-            </button>
-            <h2 style={{ margin: "0 0 4px", fontSize: 19, fontWeight: 600, color: C.text1, textAlign: "center" }}>Enter OTP</h2>
-            <p style={{ margin: "0 0 28px", fontSize: 13, color: C.text2, textAlign: "center" }}>
-              Sent to <strong style={{ color: C.text1 }}>{resetEmail || "your email"}</strong>
-            </p>
-            <div style={{ display: "flex", gap: 8, justifyContent: "center", marginBottom: 24 }}>
-              {otpValues.map((v, i) => (
-                <input key={i} ref={el => { otpRefs.current[i] = el; }} value={v}
-                  onChange={e => handleOtpChange(i, e.target.value)} onKeyDown={e => handleOtpKey(i, e)} maxLength={1}
-                  style={{ width: 46, height: 52, textAlign: "center", fontSize: 20, fontWeight: 700, fontFamily: F.mono, background: C.bg, border: `1.5px solid ${v ? C.green : C.border2}`, borderRadius: 10, color: C.text1, outline: "none", boxShadow: v ? `0 0 0 3px ${C.greenGlow}` : "none", transition: "all 0.2s" }}
-                  onFocus={e => { e.target.style.borderColor = C.green; e.target.style.boxShadow = `0 0 0 3px ${C.greenGlow}`; }}
-                  onBlur={e => { if (!v) { e.target.style.borderColor = C.border2; e.target.style.boxShadow = "none"; } }}
-                />
-              ))}
-            </div>
-            {error && <div style={{ marginBottom: 14, padding: "9px 12px", background: "rgba(255,90,90,0.08)", border: `1px solid rgba(255,90,90,0.2)`, borderRadius: 6, color: C.err, fontSize: 13 }}>{error}</div>}
-            <button style={btnG} onClick={handleVerifyResetOtp}
-              onMouseEnter={e => e.target.style.background = C.accentHover} onMouseLeave={e => e.target.style.background = C.green}>
-              Verify OTP
-            </button>
-            <p style={{ margin: "16px 0 0", textAlign: "center", fontSize: 12, color: C.text3 }}>
-              {otpTimer > 0
-                ? <>Resend in <strong style={{ color: C.text2 }}>{otpTimer}s</strong></>
-                : <button onClick={handleResendResetOtp} style={{ background: "none", border: "none", color: C.green, cursor: "pointer", fontFamily: F.sans, fontWeight: 600, fontSize: 12 }}>Resend OTP</button>}
-            </p>
-          </>}
-
-          {/* ── NEW PASSWORD ── */}
-          {view === "newpass" && <>
-            <div style={{ display: "flex", justifyContent: "center", marginBottom: 20 }}>
-              <div style={{ width: 52, height: 52, borderRadius: "50%", background: C.greenSubtle, border: `2px solid ${C.greenBorder}`, display: "flex", alignItems: "center", justifyContent: "center", color: C.green }}>
-                <CheckIcon />
-              </div>
-            </div>
-            <h2 style={{ margin: "0 0 4px", fontSize: 19, fontWeight: 600, color: C.text1, textAlign: "center" }}>Set new password</h2>
-            <p style={{ margin: "0 0 24px", fontSize: 13, color: C.text2, textAlign: "center" }}>Choose a strong password for your account</p>
-            <div style={{ marginBottom: 14 }}>
-              <label style={lbl}>New Password</label>
-              <input style={inputBase} type="password" placeholder="Min 8 characters" value={newPw} onChange={e => setNewPw(e.target.value)} onFocus={fB} onBlur={bB} />
-            </div>
-            <div style={{ marginBottom: 22 }}>
-              <label style={lbl}>Confirm Password</label>
-              <input style={inputBase} type="password" placeholder="Re-enter password" value={confirmPw} onChange={e => setConfirmPw(e.target.value)} onFocus={fB} onBlur={bB} />
-            </div>
-            {error && <div style={{ marginBottom: 14, padding: "9px 12px", background: "rgba(255,90,90,0.08)", border: `1px solid rgba(255,90,90,0.2)`, borderRadius: 6, color: C.err, fontSize: 13 }}>{error}</div>}
-            <button style={{ ...btnG, opacity: loading ? 0.7 : 1 }} onClick={handleResetPassword} disabled={loading}
-              onMouseEnter={e => { if (!loading) e.target.style.background = C.accentHover; }}
-              onMouseLeave={e => e.target.style.background = C.green}>
-              {loading ? "Resetting…" : "Reset Password"}
-            </button>
           </>}
         </div>
       </div>

@@ -139,58 +139,6 @@ export const api = {
     return res.json();
   },
 
-  async verifySignupOtp(email, otp) {
-    const res = await fetch(`${BASE}/verify-otp`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, otp }),
-    });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.detail || "OTP verification failed");
-    }
-    return res.json();
-  },
-
-  async resendOtp(email, purpose = "signup") {
-    const res = await fetch(`${BASE}/resend-otp`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, purpose }),
-    });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.detail || "Failed to resend OTP");
-    }
-    return res.json();
-  },
-
-  async forgotPassword(email) {
-    const res = await fetch(`${BASE}/forgot-password`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email }),
-    });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.detail || "Request failed");
-    }
-    return res.json();
-  },
-
-  async resetPassword(email, otp, new_password) {
-    const res = await fetch(`${BASE}/reset-password`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, otp, new_password }),
-    });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.detail || "Password reset failed");
-    }
-    return res.json();
-  },
-
   async getMe(token) {
     const res = await fetch(`${BASE}/me`, {
       headers: authHeaders(token),
@@ -282,25 +230,26 @@ export const api = {
     return res.json();
   },
 
-  async archiveDocuments(token, projectId, documentIds) {
-    const res = await fetch(`${BASE}/projects/${projectId}/documents/archive`, {
-      method: "POST",
-      headers: { ...authHeaders(token), "Content-Type": "application/json" },
-      body: JSON.stringify({ document_ids: documentIds }),
-    });
-    if (!res.ok) throw new Error(await res.text());
-    return res.json();
-  },
-
-  async restoreDocuments(token, projectId, documentIds) {
-    const res = await fetch(`${BASE}/projects/${projectId}/documents/restore`, {
-      method: "POST",
-      headers: { ...authHeaders(token), "Content-Type": "application/json" },
-      body: JSON.stringify({ document_ids: documentIds }),
-    });
-    if (!res.ok) throw new Error(await res.text());
-    return res.json();
-  },
+  // ── ARCHIVE FEATURE PARKED — re-enable by uncommenting ────────────────────
+  // async archiveDocuments(token, projectId, documentIds) {
+  //   const res = await fetch(`${BASE}/projects/${projectId}/documents/archive`, {
+  //     method: "POST",
+  //     headers: { ...authHeaders(token), "Content-Type": "application/json" },
+  //     body: JSON.stringify({ document_ids: documentIds }),
+  //   });
+  //   if (!res.ok) throw new Error(await res.text());
+  //   return res.json();
+  // },
+  //
+  // async restoreDocuments(token, projectId, documentIds) {
+  //   const res = await fetch(`${BASE}/projects/${projectId}/documents/restore`, {
+  //     method: "POST",
+  //     headers: { ...authHeaders(token), "Content-Type": "application/json" },
+  //     body: JSON.stringify({ document_ids: documentIds }),
+  //   });
+  //   if (!res.ok) throw new Error(await res.text());
+  //   return res.json();
+  // },
 
   async getTimings(token, projectId) {
     try {

@@ -40,6 +40,22 @@ function TypingIndicator({ stage }) {
   );
 }
 
+// File extensions that the backend serves with an inline-friendly Content-Type
+// (drives clickable chat-source rows).
+const CHAT_OPENABLE = new Set([".pdf", ".xlsx", ".xls", ".csv", ".ods", ".docx", ".doc", ".dxf", ".dwg"]);
+const chatExt = (n) => {
+  const i = (n || "").lastIndexOf(".");
+  return i >= 0 ? n.slice(i).toLowerCase() : "";
+};
+const chatFileIcon = (name) => {
+  const ext = chatExt(name);
+  if (ext === ".pdf") return "📕";
+  if (ext === ".docx" || ext === ".doc") return "📘";
+  if (ext === ".xlsx" || ext === ".xls" || ext === ".csv" || ext === ".ods") return "📗";
+  if (ext === ".dxf" || ext === ".dwg") return "📐";
+  return "📄";
+};
+
 // ── Markdown-lite renderer (bold, bullets, line breaks) ──
 function RichText({ text }) {
   if (!text) return null;
@@ -159,6 +175,20 @@ export default function TenderIQ() {
     });
   }, []);
 
+  // Refresh avatar when tab regains focus (picks up changes from other tabs)
+  useEffect(() => {
+    const handler = () => {
+      if (document.hidden) return;
+      const t = token || localStorage.getItem("tiq_token");
+      if (t) api.getMe(t).then(u => {
+        if (u.has_avatar) setAvatarUrl(api.getAvatarUrl(t));
+        else setAvatarUrl(null);
+      }).catch(() => {});
+    };
+    document.addEventListener("visibilitychange", handler);
+    return () => document.removeEventListener("visibilitychange", handler);
+  }, [token]);
+
   // Responsive
   useEffect(() => {
     const c = () => setIsMob(window.innerWidth < 768);
@@ -270,11 +300,11 @@ export default function TenderIQ() {
       // Chat with existing project
       try {
         const res = await api.query(token, currentProjectId, userText, chatModel);
-        const sources = (res.sources || []).filter(s => s.page || s.section);
+        const sources = (res.sources || []).filter(s => s && (s.page || s.section || s.document));
         setMsgs([...newMsgs, {
           role: "assistant", type: "text",
           content: res.answer || res.response || "No response.",
-          sources: sources.map(s => `${s.document}${s.page ? ` · Page ${s.page}` : ""}${s.section ? ` · ${s.section}` : ""}`),
+          sources, // preserve objects so they can be rendered as clickable rows
         }]);
       } catch (e) {
         const isOutOfCredits = e.message === "OUT_OF_CREDITS";
@@ -320,7 +350,7 @@ export default function TenderIQ() {
           content: `Project **${projectName}** (${typeLabel}) created. Processing **${uploadedFiles.length}** document(s)...`,
         };
         setMsgs([...newMsgs, assistantMsg]);
-        setChats(prev => [{ id: pid, title: projectName, type: projectType, is_starred: false, is_archived: false, date: "Today", updated: "Just now" }, ...prev]);
+        setChats(prev => [{ id: pid, title: projectName, type: projectType, is_starred: false, is_archived: false, date: new Date().toISOString(), updated: new Date().toISOString() }, ...prev]);
       } catch (e) {
         const isOutOfCredits = e.message === "OUT_OF_CREDITS";
         const content = isOutOfCredits
@@ -352,13 +382,14 @@ export default function TenderIQ() {
           role: "assistant", type: "text",
           content: "**You are out of Credits**\n\nPlease contact:\n\n**Michael Stanley**\nmike@sooru.ai\n+91 97427 24935\n\nOr\n\n**Brijesh Shivakumar**\nbrijesh@sooru.ai\n+91 97438 10910",
         }]);
-      } else if (e.message.startsWith("ARCHIVED:")) {
-        const fileNames = e.message.replace(/^ARCHIVED:/, "");
-        setErrorPopup({ type: "archived", fileNames });
-        setMsgs(prev => [...prev, {
-          role: "assistant", type: "text",
-          content: `The file(s) **${fileNames}** ${fileNames.includes(",") ? "are" : "is"} already in your **Archived** folder. You can restore ${fileNames.includes(",") ? "them" : "it"} from the Archived section in the parameters panel instead of re-uploading.`,
-        }]);
+      // ── ARCHIVE FEATURE PARKED — re-enable by uncommenting ───────────────
+      // } else if (e.message.startsWith("ARCHIVED:")) {
+      //   const fileNames = e.message.replace(/^ARCHIVED:/, "");
+      //   setErrorPopup({ type: "archived", fileNames });
+      //   setMsgs(prev => [...prev, {
+      //     role: "assistant", type: "text",
+      //     content: `The file(s) **${fileNames}** ${fileNames.includes(",") ? "are" : "is"} already in your **Archived** folder. You can restore ${fileNames.includes(",") ? "them" : "it"} from the Archived section in the parameters panel instead of re-uploading.`,
+      //   }]);
       } else if (e.message.startsWith("Duplicate file(s)")) {
         const fileNames = e.message.replace(/^Duplicate file\(s\) already in this project:\s*/, "");
         setErrorPopup({ type: "duplicate", fileNames });
@@ -383,6 +414,8 @@ export default function TenderIQ() {
 
   const openChat = async (chat) => {
     setMsgs([]);
+    setIsProcessing(false);
+    wasProcessingRef.current = false;
     setCurrentProjectId(chat.id);
     setCurrentProjectName(chat.title);
     setCurrentProjectType(chat.type || "commercial");
@@ -431,11 +464,21 @@ export default function TenderIQ() {
 
   const handleCtx = (e, chat) => { e.preventDefault(); e.stopPropagation(); setCtxMenu({ x: e.clientX, y: e.clientY, chat }); };
 
-  const newAnalysis = () => {
+  const newAnalysis = (force) => {
+    // Already on a blank new-analysis tab — nudge the user instead of resetting
+    if (!force && !currentProjectId && msgs.length === 0 && files.length === 0) {
+      setMsgs([{
+        role: "assistant", type: "text",
+        content: "You're already in the **New Analysis** tab! Upload tender documents to scan, or type a question to get started.",
+      }]);
+      return;
+    }
     setMsgs([]);
     setShowResults(false);
     setFiles([]);
     setIsTyping(false);
+    setIsProcessing(false);
+    wasProcessingRef.current = false;
     setCurrentProjectId(null);
     setCurrentProjectName("");
     setCurrentProjectType("commercial");
@@ -684,7 +727,7 @@ export default function TenderIQ() {
                 const isSelected = selectedChats.has(chat.id);
                 const fmtDate = (d) => {
                   if (!d) return "";
-                  try { const dt = new Date(d); return dt.toLocaleDateString("en-IN", { day: "2-digit", month: "short" }) + " " + dt.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: false }); } catch { return ""; }
+                  try { const dt = new Date(d); if (isNaN(dt.getTime())) return ""; return dt.toLocaleDateString("en-IN", { day: "2-digit", month: "short" }) + " " + dt.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: false }); } catch { return ""; }
                 };
                 return (
                 <div key={chat.id} style={{ position: "relative", marginBottom: 2 }}>
@@ -779,7 +822,7 @@ export default function TenderIQ() {
               onMouseEnter={e => e.currentTarget.style.background = C.bg3}
               onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
               {avatarUrl ? (
-                <img src={avatarUrl} style={{ width: 30, height: 30, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />
+                <img src={avatarUrl} onError={() => setAvatarUrl(null)} style={{ width: 30, height: 30, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />
               ) : (
                 <div style={{ width: 30, height: 30, borderRadius: "50%", background: C.green, color: "#111", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, flexShrink: 0 }}>
                   {getInitials(user)}
@@ -793,7 +836,7 @@ export default function TenderIQ() {
           ) : avatarUrl ? (
               <button onClick={() => setScreen("profile")} title="Profile"
                 style={{ width: 36, height: 36, borderRadius: "50%", background: "none", border: "none", cursor: "pointer", padding: 0 }}>
-                <img src={avatarUrl} style={{ width: 36, height: 36, borderRadius: "50%", objectFit: "cover" }} />
+                <img src={avatarUrl} onError={() => setAvatarUrl(null)} style={{ width: 36, height: 36, borderRadius: "50%", objectFit: "cover" }} />
               </button>
             ) : (
               <button onClick={() => setScreen("profile")} title="Profile"
@@ -932,17 +975,57 @@ export default function TenderIQ() {
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={C.green} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
                           <span style={{ fontWeight: 700, fontSize: 11, color: C.green, textTransform: "uppercase", letterSpacing: "0.06em" }}>Source Documents</span>
                         </div>
-                        {m.sources.map((s, j) => (
-                          <div key={j} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 8px", marginBottom: 4, background: "rgba(255,255,255,0.04)", borderRadius: 5, fontSize: 12, color: C.text1 }}>
-                            <span style={{ color: C.green, fontWeight: 700, fontSize: 13, flexShrink: 0 }}>{j + 1}.</span>
-                            <span style={{ fontWeight: 500 }}>{s}</span>
-                          </div>
-                        ))}
+                        {m.sources.map((s, j) => {
+                          // Legacy cached messages stored sources as strings — render non-clickable.
+                          if (typeof s === "string") {
+                            return (
+                              <div key={j} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 8px", marginBottom: 4, background: "rgba(255,255,255,0.04)", borderRadius: 5, fontSize: 12, color: C.text1 }}>
+                                <span style={{ color: C.green, fontWeight: 700, fontSize: 13, flexShrink: 0 }}>{j + 1}.</span>
+                                <span style={{ fontWeight: 500 }}>{s}</span>
+                              </div>
+                            );
+                          }
+                          const docId = s.document_id;
+                          const canOpen = !!docId && CHAT_OPENABLE.has(chatExt(s.document));
+                          const openSource = () => {
+                            if (!canOpen) return;
+                            const base = api.getDocumentFileUrl(currentProjectId, docId, token, s.document);
+                            const url = s.page ? `${base}#page=${s.page}` : base;
+                            window.open(url, "_blank");
+                          };
+                          return (
+                            <div key={j}
+                              onClick={openSource}
+                              title={canOpen ? `Click to open ${s.document}` : (s.document || "")}
+                              style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 8px", marginBottom: 4, background: "rgba(255,255,255,0.04)", borderRadius: 5, fontSize: 12, color: C.text1, cursor: canOpen ? "pointer" : "default", border: "1px solid transparent", transition: "border-color 0.15s" }}
+                              onMouseEnter={e => { if (canOpen) e.currentTarget.style.borderColor = "rgba(0,196,140,0.4)"; }}
+                              onMouseLeave={e => { e.currentTarget.style.borderColor = "transparent"; }}>
+                              <span style={{ color: C.green, fontWeight: 700, fontSize: 13, flexShrink: 0 }}>{j + 1}.</span>
+                              <span style={{ flexShrink: 0 }}>{chatFileIcon(s.document)}</span>
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ fontWeight: 600, color: canOpen ? C.green : C.text1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                  {s.document || "Unknown document"}
+                                  {canOpen && <span style={{ fontSize: 10, opacity: 0.6, marginLeft: 4 }}>↗</span>}
+                                </div>
+                                {s.section && (
+                                  <div style={{ fontSize: 10, color: C.text3, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                    {s.section}
+                                  </div>
+                                )}
+                              </div>
+                              {s.page && (
+                                <span style={{ padding: "2px 6px", background: "rgba(0,196,140,0.12)", border: "1px solid rgba(0,196,140,0.3)", borderRadius: 4, fontSize: 10, fontWeight: 600, color: C.green, flexShrink: 0 }}>
+                                  Pg.{s.page}
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })}
                       </div>
                     )}
                   </div>
                   {m.role === "user" && avatarUrl && (
-                    <img src={avatarUrl} style={{ width: 32, height: 32, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />
+                    <img src={avatarUrl} onError={() => setAvatarUrl(null)} style={{ width: 32, height: 32, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />
                   )}
                   {m.role === "user" && !avatarUrl && (
                     <div style={{ width: 32, height: 32, borderRadius: "50%", background: C.green, color: "#111", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, flexShrink: 0 }}>
@@ -1059,10 +1142,12 @@ export default function TenderIQ() {
       )}
 
       {/* ── Error Popup ── */}
+      {/* NOTE: errorPopup.type === "archived" sub-branches are PARKED with the */}
+      {/* archive feature. The popup now only handles "duplicate" and generic.  */}
       {errorPopup && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(10,14,20,0.7)", zIndex: 700, display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(4px)", animation: "fadeUp 0.2s ease" }}
           onClick={() => setErrorPopup(null)}>
-          <div style={{ background: C.bg1, borderRadius: 16, padding: "24px 28px", border: `1px solid ${errorPopup.type === "archived" ? "rgba(255,179,64,0.25)" : "rgba(255,90,90,0.25)"}`, maxWidth: 420, width: "90%", position: "relative", boxShadow: "0 8px 32px rgba(0,0,0,0.3)" }}
+          <div style={{ background: C.bg1, borderRadius: 16, padding: "24px 28px", border: `1px solid rgba(255,90,90,0.25)`, maxWidth: 420, width: "90%", position: "relative", boxShadow: "0 8px 32px rgba(0,0,0,0.3)" }}
             onClick={e => e.stopPropagation()}>
             <button onClick={() => setErrorPopup(null)}
               style={{ position: "absolute", top: 12, right: 12, background: "transparent", border: "none", color: C.text3, cursor: "pointer", padding: 4, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 6, transition: "background 0.15s" }}
@@ -1071,29 +1156,17 @@ export default function TenderIQ() {
               <CloseIcon size={16} />
             </button>
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
-              <div style={{ width: 36, height: 36, borderRadius: 10, background: errorPopup.type === "archived" ? "rgba(255,179,64,0.1)" : "rgba(255,90,90,0.1)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                {errorPopup.type === "archived" ? (
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FFB340" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/>
-                  </svg>
-                ) : (
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ff5a5a" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
-                  </svg>
-                )}
+              <div style={{ width: 36, height: 36, borderRadius: 10, background: "rgba(255,90,90,0.1)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ff5a5a" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+                </svg>
               </div>
               <div style={{ fontSize: 16, fontWeight: 700, color: C.text1 }}>
-                {errorPopup.type === "archived" ? "File Already Archived" : errorPopup.type === "duplicate" ? "Duplicate Files Detected" : "Upload Failed"}
+                {errorPopup.type === "duplicate" ? "Duplicate Files Detected" : "Upload Failed"}
               </div>
             </div>
             <div style={{ fontSize: 13, color: C.text2, lineHeight: 1.7 }}>
-              {errorPopup.type === "archived" ? (<>
-                <span style={{ fontWeight: 600, color: C.text1 }}>{errorPopup.fileNames}</span>{" "}
-                {errorPopup.fileNames.includes(",") ? "are" : "is"} in your <span style={{ fontWeight: 600, color: "#FFB340" }}>Archived</span> folder.
-                <div style={{ marginTop: 10, color: C.text3 }}>
-                  You can restore {errorPopup.fileNames.includes(",") ? "them" : "it"} from the Archived section in the parameters panel instead of re-uploading.
-                </div>
-              </>) : errorPopup.type === "duplicate" ? (<>
+              {errorPopup.type === "duplicate" ? (<>
                 The file(s) you uploaded{" "}
                 <span style={{ fontWeight: 600, color: C.text1 }}>{errorPopup.fileNames}</span>{" "}
                 {errorPopup.fileNames.includes(",") ? "are" : "is"} already scanned for parameters.
@@ -1103,9 +1176,9 @@ export default function TenderIQ() {
               </>) : errorPopup.message}
             </div>
             <button onClick={() => setErrorPopup(null)}
-              style={{ marginTop: 18, width: "100%", padding: "10px 0", background: errorPopup.type === "archived" ? "rgba(255,179,64,0.08)" : "rgba(255,255,255,0.06)", border: `1px solid ${errorPopup.type === "archived" ? "rgba(255,179,64,0.25)" : C.border}`, borderRadius: 8, color: errorPopup.type === "archived" ? "#FFB340" : C.text1, cursor: "pointer", fontSize: 13, fontWeight: 600, fontFamily: F.sans, transition: "background 0.15s" }}
-              onMouseEnter={e => e.currentTarget.style.background = errorPopup.type === "archived" ? "rgba(255,179,64,0.15)" : "rgba(255,255,255,0.1)"}
-              onMouseLeave={e => e.currentTarget.style.background = errorPopup.type === "archived" ? "rgba(255,179,64,0.08)" : "rgba(255,255,255,0.06)"}>
+              style={{ marginTop: 18, width: "100%", padding: "10px 0", background: "rgba(255,255,255,0.06)", border: `1px solid ${C.border}`, borderRadius: 8, color: C.text1, cursor: "pointer", fontSize: 13, fontWeight: 600, fontFamily: F.sans, transition: "background 0.15s" }}
+              onMouseEnter={e => e.currentTarget.style.background = "rgba(255,255,255,0.1)"}
+              onMouseLeave={e => e.currentTarget.style.background = "rgba(255,255,255,0.06)"}>
               OK
             </button>
           </div>
