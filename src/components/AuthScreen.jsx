@@ -95,7 +95,7 @@ export default function AuthScreen({ onLogin }) {
             <div style={{ marginBottom: 8 }}>
               {reqLabel("Password")}
               <div style={{ position: "relative" }}>
-                <input style={{ ...inputBase, paddingRight: 40, borderColor: touched.pw && !form.pw ? C.err : undefined }} type={showPw ? "text" : "password"} placeholder="Enter password" value={form.pw} onChange={f("pw")} onFocus={fB} onBlur={(e) => { bB(e); markTouched("pw")(); }}
+                <input style={{ ...inputBase, paddingRight: 40, borderColor: touched.pw && !form.pw ? C.err : undefined }} type={showPw ? "text" : "password"} placeholder="Enter password" autoComplete="new-password" value={form.pw} onChange={f("pw")} onFocus={fB} onBlur={(e) => { bB(e); markTouched("pw")(); }}
                   onKeyDown={e => e.key === "Enter" && handleLogin()} />
                 <button onClick={() => setShowPw(!showPw)} style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", color: C.text3, cursor: "pointer", padding: 4 }}>
                   {showPw ? <EyeOffIcon /> : <EyeIcon />}
